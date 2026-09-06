@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  ADMIN
+  CANDIDATE
+}
+
+enum RoleInterest {
+  RISET
+  MAGANG
+}
+
+enum SelectionStatus {
+  PENDING
+  SELEKSI_BERKAS
+  WAWANCARA_1
+  WAWANCARA_2
+  DITERIMA
+}
+
+model User {
+  id        String            @id @default(uuid())
+  email     String            @unique
+  password  String?
+  role      UserRole          @default(CANDIDATE)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @default(now()) @updatedAt
+
+  profile   CandidateProfile?
+}
+
+model CandidateProfile {
+  id                String              @id @default(uuid())
+  userId            String              @unique
+  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  fullName          String
+  universitas       String
+  nim               String
+  programStudi      String
+  roleInterest      RoleInterest
+  cvUrl             String
+  transkripUrl      String?
+  ipk               Float?
+  semester          Int?
+  portfolioUrl      String
+  pengalaman        String?             @db.Text
+  isGoldenCandidate Boolean             @default(false)
+
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  oprecRecords      OprecRegistration[]
+}
+
+model OprecRegistration {
+  id              String           @id @default(uuid())
+  candidateId     String
+  candidate       CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  batchName       String
+  status          SelectionStatus  @default(PENDING)
+  assignedProject String?
+  
+  appliedAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([candidateId, batchName])
+}
+
+model RecruitmentSetting {
+  id           String    @id @default(uuid())
+  key          String    @unique @default("DEFAULT")
+  isActive     Boolean   @default(true)
+  currentBatch String    @default("Oprec Batch 1 - 2026")
+  startDate    DateTime?
+  endDate      DateTime?
+  description  String?   @db.Text
+  updatedAt    DateTime  @default(now()) @updatedAt
+  createdAt    DateTime  @default(now())
+}
