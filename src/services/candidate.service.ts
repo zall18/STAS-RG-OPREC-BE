@@ -132,11 +132,20 @@ export class CandidateService {
       throw error;
     }
 
+    // Try to find matching Batch record for relational reference
+    const batchRecord = (prisma as any).batch
+      ? await prisma.batch.findUnique({
+          where: { name: targetBatch },
+        })
+      : null;
+
+
     // 5. Create registration record
     const registration = await prisma.oprecRegistration.create({
       data: {
         candidateId: profile.id,
         batchName: targetBatch,
+        batchId: batchRecord?.id ?? null,
         status: SelectionStatus.PENDING,
       },
       include: {
@@ -146,4 +155,30 @@ export class CandidateService {
 
     return registration;
   }
+
+  /**
+   * Get all historical registrations of candidate
+   */
+  static async getRegistrations(userId: string) {
+    const profile = await prisma.candidateProfile.findUnique({
+      where: { userId },
+    });
+
+    if (!profile) {
+      const error: any = new Error('Profil kandidat belum diisi');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    return prisma.oprecRegistration.findMany({
+      where: { candidateId: profile.id },
+      orderBy: { appliedAt: 'desc' },
+      include: {
+        batch: true,
+        goldenApplication: true,
+        interviews: true,
+      },
+    });
+  }
 }
+

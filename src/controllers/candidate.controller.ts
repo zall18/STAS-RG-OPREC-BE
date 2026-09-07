@@ -43,4 +43,18 @@ export class CandidateController {
       next(error);
     }
   }
+
+  static async getRegistrations(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const registrations = await CandidateService.getRegistrations(userId);
+      res.status(200).json({
+        success: true,
+        data: registrations,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
+

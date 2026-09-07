@@ -10,6 +10,9 @@ import {
   updateStatusSchema,
   assignProjectSchema,
   updateRecruitmentSettingSchema,
+  bulkStatusSchema,
+  createAdminNoteSchema,
+  deleteAdminNoteSchema,
 } from '../schemas/admin.schema';
 import { getDashboardStatsQuerySchema } from '../schemas/dashboard.schema';
 
@@ -37,9 +40,33 @@ router.patch(
 // Export Candidates (place before /candidates/:id)
 router.get('/candidates/export', AdminController.exportCandidates);
 
+// Bulk Actions (place before /candidates/:id)
+router.patch(
+  '/candidates/bulk-status',
+  validateRequest(bulkStatusSchema),
+  AdminController.bulkUpdateStatus
+);
+
 // Candidate Management
 router.get('/candidates', validateRequest(getCandidatesQuerySchema), AdminController.getCandidates);
 router.get('/candidates/:id', validateRequest(candidateIdParamSchema), AdminController.getCandidateById);
+
+// Candidate Internal Notes
+router.post(
+  '/candidates/:id/notes',
+  validateRequest(createAdminNoteSchema),
+  AdminController.createCandidateNote
+);
+router.get(
+  '/candidates/:id/notes',
+  validateRequest(candidateIdParamSchema),
+  AdminController.getCandidateNotes
+);
+router.delete(
+  '/candidates/:id/notes/:noteId',
+  validateRequest(deleteAdminNoteSchema),
+  AdminController.deleteCandidateNote
+);
 router.patch(
   '/candidates/:registrationId/status',
   validateRequest(updateStatusSchema),

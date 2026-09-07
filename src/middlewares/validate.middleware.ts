@@ -17,13 +17,20 @@ export const validateRequest = (schema: AnyZodObject) => {
       next();
     } catch (error) {
       if (error instanceof ZodError) {
+        const fieldErrors = error.errors.map((err) => ({
+          field: err.path.join('.').replace(/^(body|query|params)\./, ''),
+          message: err.message,
+        }));
+
+        const detailedMessage =
+          fieldErrors.length > 0
+            ? `Validasi gagal: ${fieldErrors.map((e) => `${e.field}: ${e.message}`).join(', ')}`
+            : 'Validasi gagal';
+
         res.status(400).json({
           success: false,
-          message: 'Validasi gagal',
-          errors: error.errors.map((err) => ({
-            field: err.path.join('.').replace(/^(body|query|params)\./, ''),
-            message: err.message,
-          })),
+          message: detailedMessage,
+          errors: fieldErrors,
         });
         return;
       }

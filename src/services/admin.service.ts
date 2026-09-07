@@ -1,5 +1,7 @@
 import { prisma } from '../config/prisma';
 import { SelectionStatus, RoleInterest } from '@prisma/client';
+import { ActivityLogService } from './activity-log.service';
+import { NotificationService } from './notification.service';
 
 export interface GetCandidatesFilter {
   search?: string;
@@ -311,5 +313,150 @@ export class AdminService {
     });
 
     return updated;
+  }
+
+  /**
+   * Bulk Update Selection Status for multiple candidate registrations
+   */
+  static async bulkUpdateStatus(adminId: string, registrationIds: string[], status: SelectionStatus) {
+    const registrations = await prisma.oprecRegistration.findMany({
+      where: { id: { in: registrationIds } },
+      include: {
+        candidate: {
+          include: { user: true },
+        },
+      },
+    });
+
+    if (registrations.length === 0) {
+      const error: any = new Error('Tidak ada data pendaftaran yang cocok dengan ID yang diberikan');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const updateResult = await prisma.oprecRegistration.updateMany({
+      where: { id: { in: registrationIds } },
+      data: { status },
+    });
+
+    // Notify affected candidates
+    for (const reg of registrations) {
+      if (reg.candidate?.userId) {
+        await NotificationService.send(
+          reg.candidate.userId,
+          'Pembaruan Status Seleksi',
+          `Status seleksi Anda untuk ${reg.batchName} telah diperbarui menjadi: ${status}`
+        );
+      }
+    }
+
+    await ActivityLogService.record({
+      userId: adminId,
+      action: 'BULK_UPDATE_STATUS',
+      targetType: 'OPREC_REGISTRATION',
+      details: { count: updateResult.count, targetStatus: status, ids: registrationIds },
+    });
+
+    return {
+      updatedCount: updateResult.count,
+      status,
+    };
+  }
+
+  /**
+   * Create internal note for a candidate
+   */
+  static async createCandidateNote(
+    adminId: string,
+    candidateIdentifier: string,
+    content: string,
+    registrationId?: string | null
+  ) {
+    const candidate = await this.getCandidateById(candidateIdentifier);
+
+    const note = await prisma.adminNote.create({
+      data: {
+        candidateId: candidate.id,
+        adminId,
+        content,
+        registrationId: registrationId ?? null,
+      },
+      include: {
+        admin: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    await ActivityLogService.record({
+      userId: adminId,
+      action: 'CREATE_ADMIN_NOTE',
+      targetType: 'CANDIDATE',
+      targetId: candidate.id,
+      details: { noteId: note.id },
+    });
+
+    return note;
+  }
+
+  /**
+   * Get all internal notes for a candidate
+   */
+  static async getCandidateNotes(candidateIdentifier: string) {
+    const candidate = await this.getCandidateById(candidateIdentifier);
+
+    const notes = await prisma.adminNote.findMany({
+      where: { candidateId: candidate.id },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        admin: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    });
+
+    return notes;
+  }
+
+  /**
+   * Delete an internal note
+   */
+  static async deleteCandidateNote(adminId: string, candidateIdentifier: string, noteId: string) {
+    const candidate = await this.getCandidateById(candidateIdentifier);
+
+    const note = await prisma.adminNote.findFirst({
+      where: {
+        id: noteId,
+        candidateId: candidate.id,
+      },
+    });
+
+    if (!note) {
+      const error: any = new Error('Catatan tidak ditemukan');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    await prisma.adminNote.delete({
+      where: { id: noteId },
+    });
+
+    await ActivityLogService.record({
+      userId: adminId,
+      action: 'DELETE_ADMIN_NOTE',
+      targetType: 'CANDIDATE',
+      targetId: candidate.id,
+      details: { noteId },
+    });
+
+    return { message: 'Catatan berhasil dihapus' };
   }
 }

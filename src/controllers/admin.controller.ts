@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
+import { AuthenticatedRequest } from '../types';
 import { AdminService } from '../services/admin.service';
 import { SettingService } from '../services/setting.service';
 
@@ -136,6 +137,76 @@ export class AdminController {
         success: true,
         message: 'Pengaturan periode rekrutmen berhasil diperbarui',
         data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Bulk update status for multiple candidate registrations
+   */
+  static async bulkUpdateStatus(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const adminId = req.user!.id;
+      const { ids, status } = req.body;
+      const result = await AdminService.bulkUpdateStatus(adminId, ids, status);
+      res.status(200).json({
+        success: true,
+        message: `Berhasil memperbarui status ${result.updatedCount} kandidat menjadi ${status}`,
+        data: result,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Create internal note for candidate
+   */
+  static async createCandidateNote(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const adminId = req.user!.id;
+      const { id } = req.params;
+      const { content, registrationId } = req.body;
+      const note = await AdminService.createCandidateNote(adminId, id, content, registrationId);
+      res.status(201).json({
+        success: true,
+        message: 'Catatan internal berhasil ditambahkan',
+        data: note,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Get all internal notes for a candidate
+   */
+  static async getCandidateNotes(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const notes = await AdminService.getCandidateNotes(id);
+      res.status(200).json({
+        success: true,
+        data: notes,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Delete an internal note
+   */
+  static async deleteCandidateNote(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const adminId = req.user!.id;
+      const { id, noteId } = req.params;
+      const result = await AdminService.deleteCandidateNote(adminId, id, noteId);
+      res.status(200).json({
+        success: true,
+        message: result.message,
       });
     } catch (error) {
       next(error);

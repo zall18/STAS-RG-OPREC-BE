@@ -54,3 +54,35 @@ export const candidateIdParamSchema = z.object({
     id: z.string().uuid('ID Kandidat tidak valid'),
   }),
 });
+
+export const bulkStatusSchema = z.object({
+  body: z.object({
+    ids: z.array(z.string().uuid('ID pendaftaran harus berupa UUID valid')).min(1, 'Minimal satu ID harus disertakan'),
+    status: z.nativeEnum(SelectionStatus, {
+      errorMap: () => ({
+        message: 'Status harus salah satu dari: PENDING, SELEKSI_BERKAS, WAWANCARA_1, WAWANCARA_2, DITERIMA, DITOLAK',
+      }),
+    }),
+  }),
+});
+
+export const createAdminNoteSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('ID Kandidat tidak valid'),
+  }),
+  body: z.object({
+    content: z.string().min(1, 'Isi catatan tidak boleh kosong'),
+    registrationId: z.string().uuid('ID Registrasi tidak valid').optional().nullable(),
+  }),
+});
+
+export const deleteAdminNoteSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('ID Kandidat tidak valid'),
+    noteId: z.string().uuid('ID Catatan tidak valid'),
+  }),
+});
+
+export type BulkStatusInput = z.infer<typeof bulkStatusSchema>['body'];
+export type CreateAdminNoteInput = z.infer<typeof createAdminNoteSchema>['body'];
+

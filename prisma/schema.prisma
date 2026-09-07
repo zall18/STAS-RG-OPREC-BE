@@ -24,55 +24,176 @@ enum SelectionStatus {
   WAWANCARA_1
   WAWANCARA_2
   DITERIMA
+  DITOLAK
+}
+
+enum InterviewType {
+  ONLINE
+  OFFLINE
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
 }
 
 model User {
-  id        String            @id @default(uuid())
-  email     String            @unique
-  password  String?
-  role      UserRole          @default(CANDIDATE)
-  createdAt DateTime          @default(now())
-  updatedAt DateTime          @default(now()) @updatedAt
+  id            String            @id @default(uuid())
+  email         String            @unique
+  password      String?
+  role          UserRole          @default(CANDIDATE)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @default(now()) @updatedAt
 
-  profile   CandidateProfile?
+  profile       CandidateProfile?
+  adminNotes    AdminNote[]
+  notifications Notification[]
+  activityLogs  ActivityLog[]
+  announcements Announcement[]
 }
 
 model CandidateProfile {
-  id                String              @id @default(uuid())
-  userId            String              @unique
-  user              User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                 String              @id @default(uuid())
+  userId             String              @unique
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  fullName          String
-  universitas       String
-  nim               String
-  programStudi      String
-  roleInterest      RoleInterest
-  cvUrl             String
-  transkripUrl      String?
-  ipk               Float?
-  semester          Int?
-  portfolioUrl      String
-  pengalaman        String?             @db.Text
-  isGoldenCandidate Boolean             @default(false)
+  fullName           String
+  universitas        String
+  nim                String
+  programStudi       String
+  roleInterest       RoleInterest
+  cvUrl              String
+  transkripUrl       String?
+  ipk                Float?
+  semester           Int?
+  portfolioUrl       String
+  pengalaman         String?             @db.Text
+  isGoldenCandidate  Boolean             @default(false)
 
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
 
-  oprecRecords      OprecRegistration[]
+  oprecRecords       OprecRegistration[]
+  goldenApplications GoldenApplication[]
+  adminNotes         AdminNote[]
+  interviews         Interview[]
+}
+
+model Batch {
+  id            String              @id @default(uuid())
+  name          String              @unique
+  description   String?             @db.Text
+  startDate     DateTime?
+  endDate       DateTime?
+  quota         Int?
+  isActive      Boolean             @default(false)
+  isArchived    Boolean             @default(false)
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  registrations OprecRegistration[]
 }
 
 model OprecRegistration {
-  id              String           @id @default(uuid())
-  candidateId     String
-  candidate       CandidateProfile @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  batchName       String
-  status          SelectionStatus  @default(PENDING)
-  assignedProject String?
+  id                String             @id @default(uuid())
+  candidateId       String
+  candidate         CandidateProfile   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  batchId           String?
+  batch             Batch?             @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  batchName         String
+  status            SelectionStatus    @default(PENDING)
+  assignedProject   String?
   
-  appliedAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  appliedAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  goldenApplication GoldenApplication?
+  interviews        Interview[]
+  adminNotes        AdminNote[]
 
   @@unique([candidateId, batchName])
+}
+
+model GoldenApplication {
+  id             String             @id @default(uuid())
+  candidateId    String
+  candidate      CandidateProfile   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  registrationId String?            @unique
+  registration   OprecRegistration? @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+
+  motivasi       String             @db.Text
+  pencapaian     String             @db.Text
+  rekomendasi    String?            @db.Text
+  status         SelectionStatus    @default(PENDING)
+
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model AdminNote {
+  id             String             @id @default(uuid())
+  candidateId    String
+  candidate      CandidateProfile   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  registrationId String?
+  registration   OprecRegistration? @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  adminId        String
+  admin          User               @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  content        String             @db.Text
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Interview {
+  id             String             @id @default(uuid())
+  candidateId    String
+  candidate      CandidateProfile   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  registrationId String?
+  registration   OprecRegistration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+  
+  datetime       DateTime
+  location       String?
+  type           InterviewType      @default(ONLINE)
+  link           String?
+  status         InterviewStatus    @default(SCHEDULED)
+  notes          String?            @db.Text
+
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+}
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action     String
+  targetType String?
+  targetId   String?
+  details    String?  @db.Text
+  createdAt  DateTime @default(now())
+}
+
+model Announcement {
+  id        String   @id @default(uuid())
+  title     String
+  content   String   @db.Text
+  isActive  Boolean  @default(true)
+  authorId  String?
+  author    User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model RecruitmentSetting {
