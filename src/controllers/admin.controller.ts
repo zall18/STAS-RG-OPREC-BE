@@ -212,4 +212,24 @@ export class AdminController {
       next(error);
     }
   }
+
+  /**
+   * Update Golden Candidate status (PENDING, REVIEW, ACCEPTED, REJECTED)
+   */
+  static async updateGoldenStatus(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const adminId = req.user!.id;
+      const identifier = req.params.id || req.params.registrationId;
+      const { status } = req.body;
+      const updated = await AdminService.updateGoldenStatus(adminId, identifier, status);
+      res.status(200).json({
+        success: true,
+        message: `Status Golden Candidate berhasil diubah menjadi ${status}`,
+        data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
+

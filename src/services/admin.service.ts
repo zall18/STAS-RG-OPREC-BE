@@ -1,7 +1,8 @@
 import { prisma } from '../config/prisma';
-import { SelectionStatus, RoleInterest } from '@prisma/client';
+import { SelectionStatus, RoleInterest, GoldenStatus } from '@prisma/client';
 import { ActivityLogService } from './activity-log.service';
 import { NotificationService } from './notification.service';
+import { GoldenService } from './golden.service';
 
 export interface GetCandidatesFilter {
   search?: string;
@@ -81,6 +82,9 @@ export class AdminService {
                   role: true,
                   createdAt: true,
                 },
+              },
+              goldenApplications: {
+                orderBy: { createdAt: 'desc' },
               },
             },
           },
@@ -178,44 +182,62 @@ export class AdminService {
   }
 
   /**
+   * Detail include object for comprehensive candidate profile querying
+   */
+  private static candidateDetailInclude = {
+    user: {
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        createdAt: true,
+      },
+    },
+    oprecRecords: {
+      orderBy: { appliedAt: 'desc' as const },
+      include: {
+        batch: true,
+        goldenApplication: true,
+      },
+    },
+    goldenApplications: {
+      orderBy: { createdAt: 'desc' as const },
+      include: {
+        registration: true,
+      },
+    },
+    adminNotes: {
+      orderBy: { createdAt: 'desc' as const },
+      include: {
+        admin: {
+          select: {
+            id: true,
+            email: true,
+            role: true,
+          },
+        },
+      },
+    },
+    interviews: {
+      orderBy: { datetime: 'asc' as const },
+    },
+  };
+
+  /**
    * Get detailed candidate information by candidateProfile ID, userId, or registrationId
    */
   static async getCandidateById(identifier: string) {
     // 1. Try finding directly by CandidateProfile.id
     let candidate = await prisma.candidateProfile.findUnique({
       where: { id: identifier },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            role: true,
-            createdAt: true,
-          },
-        },
-        oprecRecords: {
-          orderBy: { appliedAt: 'desc' },
-        },
-      },
+      include: this.candidateDetailInclude,
     });
 
     // 2. Fallback: Try finding by User.id
     if (!candidate) {
       candidate = await prisma.candidateProfile.findUnique({
         where: { userId: identifier },
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              role: true,
-              createdAt: true,
-            },
-          },
-          oprecRecords: {
-            orderBy: { appliedAt: 'desc' },
-          },
-        },
+        include: this.candidateDetailInclude,
       });
     }
 
@@ -225,19 +247,7 @@ export class AdminService {
         where: { id: identifier },
         include: {
           candidate: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  email: true,
-                  role: true,
-                  createdAt: true,
-                },
-              },
-              oprecRecords: {
-                orderBy: { appliedAt: 'desc' },
-              },
-            },
+            include: this.candidateDetailInclude,
           },
         },
       });
@@ -458,5 +468,12 @@ export class AdminService {
     });
 
     return { message: 'Catatan berhasil dihapus' };
+  }
+
+  /**
+   * Update Golden Candidate status
+   */
+  static async updateGoldenStatus(adminId: string, identifier: string, status: GoldenStatus) {
+    return GoldenService.updateGoldenStatus(adminId, identifier, status);
   }
 }

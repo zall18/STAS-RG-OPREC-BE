@@ -1,7 +1,7 @@
 import { Request } from 'express';
-import { UserRole, RoleInterest, SelectionStatus } from '@prisma/client';
+import { UserRole, RoleInterest, SelectionStatus, GoldenStatus } from '@prisma/client';
 
-export { UserRole, RoleInterest, SelectionStatus };
+export { UserRole, RoleInterest, SelectionStatus, GoldenStatus };
 
 export interface JwtPayload {
   userId: string;

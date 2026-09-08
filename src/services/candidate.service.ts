@@ -8,10 +8,6 @@ export class CandidateService {
    * Upsert Candidate Profile
    */
   static async upsertProfile(userId: string, input: UpsertProfileInput) {
-    // Check dynamic oprec active status from database setting
-    const isOprecActive = await SettingService.isOprecActive();
-    const isGolden = !isOprecActive;
-
     const existingProfile = await prisma.candidateProfile.findUnique({
       where: { userId },
     });
@@ -28,8 +24,8 @@ export class CandidateService {
       semester: input.semester ?? null,
       portfolioUrl: input.portfolioUrl,
       pengalaman: input.pengalaman ?? null,
-      // If already golden or now registered outside oprec, keep true
-      isGoldenCandidate: existingProfile?.isGoldenCandidate || isGolden,
+      // isGoldenCandidate is only set to true once Admin approves/accepts the Golden Application
+      isGoldenCandidate: existingProfile?.isGoldenCandidate ?? false,
     };
 
     const profile = await prisma.candidateProfile.upsert({
@@ -42,6 +38,9 @@ export class CandidateService {
       include: {
         oprecRecords: {
           orderBy: { appliedAt: 'desc' },
+        },
+        goldenApplications: {
+          orderBy: { createdAt: 'desc' },
         },
       },
     });
@@ -58,6 +57,9 @@ export class CandidateService {
       include: {
         oprecRecords: {
           orderBy: { appliedAt: 'desc' },
+        },
+        goldenApplications: {
+          orderBy: { createdAt: 'desc' },
         },
       },
     });

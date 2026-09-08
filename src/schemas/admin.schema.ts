@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { SelectionStatus, RoleInterest } from '@prisma/client';
+import { SelectionStatus, RoleInterest, GoldenStatus } from '@prisma/client';
 export { updateRecruitmentSettingSchema, UpdateRecruitmentSettingInput } from './setting.schema';
 
 export const getCandidatesQuerySchema = z.object({
@@ -85,4 +85,20 @@ export const deleteAdminNoteSchema = z.object({
 
 export type BulkStatusInput = z.infer<typeof bulkStatusSchema>['body'];
 export type CreateAdminNoteInput = z.infer<typeof createAdminNoteSchema>['body'];
+
+export const updateGoldenStatusSchema = z.object({
+  params: z.object({
+    id: z.string().uuid('ID Kandidat/Aplikasi tidak valid').optional(),
+    registrationId: z.string().uuid('ID Registrasi tidak valid').optional(),
+  }),
+  body: z.object({
+    status: z.nativeEnum(GoldenStatus, {
+      errorMap: () => ({
+        message: 'Status harus salah satu dari: PENDING, REVIEW, ACCEPTED, REJECTED',
+      }),
+    }),
+  }),
+});
+
+export type UpdateGoldenStatusInput = z.infer<typeof updateGoldenStatusSchema>['body'];
 

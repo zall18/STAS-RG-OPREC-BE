@@ -13,6 +13,7 @@ import {
   bulkStatusSchema,
   createAdminNoteSchema,
   deleteAdminNoteSchema,
+  updateGoldenStatusSchema,
 } from '../schemas/admin.schema';
 import { getDashboardStatsQuerySchema } from '../schemas/dashboard.schema';
 
@@ -78,4 +79,12 @@ router.patch(
   AdminController.assignProject
 );
 
+// Golden Candidate Status Management
+router.patch(
+  '/candidates/:id/golden-status',
+  validateRequest(updateGoldenStatusSchema),
+  AdminController.updateGoldenStatus
+);
+
 export default router;
+

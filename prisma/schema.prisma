@@ -27,6 +27,13 @@ enum SelectionStatus {
   DITOLAK
 }
 
+enum GoldenStatus {
+  PENDING
+  REVIEW
+  ACCEPTED
+  REJECTED
+}
+
 enum InterviewType {
   ONLINE
   OFFLINE
@@ -126,7 +133,7 @@ model GoldenApplication {
   motivasi       String             @db.Text
   pencapaian     String             @db.Text
   rekomendasi    String?            @db.Text
-  status         SelectionStatus    @default(PENDING)
+  status         GoldenStatus       @default(PENDING)
 
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt

@@ -2,7 +2,7 @@ import request from 'supertest';
 import { app } from '../src/app';
 import { prisma } from '../src/config/prisma';
 import { AuthService } from '../src/services/auth.service';
-import { UserRole, SelectionStatus, InterviewType, InterviewStatus } from '@prisma/client';
+import { UserRole, SelectionStatus, InterviewType, InterviewStatus, GoldenStatus } from '@prisma/client';
 
 jest.mock('../src/config/prisma', () => ({
   prisma: {
@@ -23,6 +23,7 @@ jest.mock('../src/config/prisma', () => ({
     },
     goldenApplication: {
       create: jest.fn(),
+      findUnique: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
     },
@@ -193,19 +194,15 @@ describe('New Features Integration Tests', () => {
     });
   });
 
-  describe('Golden Application (F3) - /api/candidate/golden-application', () => {
-    it('POST /api/candidate/golden-application - should submit golden application', async () => {
+  describe('Golden Application (F3) - /api/candidate/golden-application & Admin Management', () => {
+    it('POST /api/candidate/golden-application - should submit golden application without activating isGoldenCandidate', async () => {
       (prisma.goldenApplication.findFirst as jest.Mock).mockResolvedValue(null);
-      (prisma.candidateProfile.update as jest.Mock).mockResolvedValue({
-        ...mockProfile,
-        isGoldenCandidate: true,
-      });
       (prisma.goldenApplication.create as jest.Mock).mockResolvedValue({
         id: '50000000-0000-4000-8000-000000000001',
         candidateId: mockProfile.id,
         motivasi: 'Tertarik riset cyber security',
         pencapaian: 'Juara 1 CTF Nasional',
-        status: SelectionStatus.PENDING,
+        status: GoldenStatus.PENDING,
       });
 
       const res = await request(app)
@@ -219,6 +216,9 @@ describe('New Features Integration Tests', () => {
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
       expect(res.body.data.pencapaian).toBe('Juara 1 CTF Nasional');
+      expect(res.body.data.status).toBe(GoldenStatus.PENDING);
+      // isGoldenCandidate badge must NOT be activated prematurely on submission
+      expect(prisma.candidateProfile.update).not.toHaveBeenCalled();
     });
 
     it('GET /api/candidate/golden-application - should retrieve submitted application', async () => {
@@ -227,7 +227,7 @@ describe('New Features Integration Tests', () => {
         candidateId: mockProfile.id,
         motivasi: 'Tertarik riset',
         pencapaian: 'Juara 1 CTF',
-        status: SelectionStatus.PENDING,
+        status: GoldenStatus.PENDING,
       });
 
       const res = await request(app)
@@ -237,6 +237,116 @@ describe('New Features Integration Tests', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.id).toBe('50000000-0000-4000-8000-000000000001');
+    });
+
+    it('PATCH /api/admin/candidates/:id/golden-status - should approve golden candidate and set isGoldenCandidate=true', async () => {
+      (prisma.goldenApplication.findUnique as jest.Mock).mockResolvedValue({
+        id: '50000000-0000-4000-8000-000000000001',
+        candidateId: mockProfile.id,
+        status: GoldenStatus.PENDING,
+        candidate: {
+          ...mockProfile,
+          userId: candidateUser.id,
+        },
+      });
+      (prisma.goldenApplication.update as jest.Mock).mockResolvedValue({
+        id: '50000000-0000-4000-8000-000000000001',
+        candidateId: mockProfile.id,
+        status: GoldenStatus.ACCEPTED,
+        candidate: {
+          ...mockProfile,
+          userId: candidateUser.id,
+          user: { email: candidateUser.email },
+        },
+      });
+      (prisma.candidateProfile.update as jest.Mock).mockResolvedValue({
+        ...mockProfile,
+        isGoldenCandidate: true,
+      });
+      (prisma.notification.create as jest.Mock).mockResolvedValue({});
+
+      const res = await request(app)
+        .patch(`/api/admin/candidates/${mockProfile.id}/golden-status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: GoldenStatus.ACCEPTED });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.status).toBe(GoldenStatus.ACCEPTED);
+      expect(prisma.candidateProfile.update).toHaveBeenCalledWith({
+        where: { id: mockProfile.id },
+        data: { isGoldenCandidate: true },
+      });
+    });
+
+    it('PATCH /api/admin/candidates/:id/golden-status - should reject golden candidate and set isGoldenCandidate=false', async () => {
+      (prisma.goldenApplication.findUnique as jest.Mock).mockResolvedValue({
+        id: '50000000-0000-4000-8000-000000000001',
+        candidateId: mockProfile.id,
+        status: GoldenStatus.PENDING,
+        candidate: {
+          ...mockProfile,
+          userId: candidateUser.id,
+        },
+      });
+      (prisma.goldenApplication.update as jest.Mock).mockResolvedValue({
+        id: '50000000-0000-4000-8000-000000000001',
+        candidateId: mockProfile.id,
+        status: GoldenStatus.REJECTED,
+        candidate: {
+          ...mockProfile,
+          userId: candidateUser.id,
+          user: { email: candidateUser.email },
+        },
+      });
+      (prisma.candidateProfile.update as jest.Mock).mockResolvedValue({
+        ...mockProfile,
+        isGoldenCandidate: false,
+      });
+      (prisma.notification.create as jest.Mock).mockResolvedValue({});
+
+      const res = await request(app)
+        .patch(`/api/admin/candidates/${mockProfile.id}/golden-status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: GoldenStatus.REJECTED });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.status).toBe(GoldenStatus.REJECTED);
+      expect(prisma.candidateProfile.update).toHaveBeenCalledWith({
+        where: { id: mockProfile.id },
+        data: { isGoldenCandidate: false },
+      });
+    });
+
+    it('GET /api/admin/candidates/:id - should return complete candidate details including goldenApplications', async () => {
+      (prisma.candidateProfile.findUnique as jest.Mock).mockResolvedValue({
+        ...mockProfile,
+        isGoldenCandidate: true,
+        goldenApplications: [
+          {
+            id: '50000000-0000-4000-8000-000000000001',
+            candidateId: mockProfile.id,
+            motivasi: 'Tertarik riset cyber security dan AI',
+            pencapaian: 'Juara 1 CTF Nasional dan Publikasi Paper',
+            rekomendasi: 'Dr. John Doe',
+            status: GoldenStatus.ACCEPTED,
+          },
+        ],
+        oprecRecords: [],
+        adminNotes: [],
+        interviews: [],
+      });
+
+      const res = await request(app)
+        .get(`/api/admin/candidates/${mockProfile.id}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.goldenApplications).toHaveLength(1);
+      expect(res.body.data.goldenApplications[0].motivasi).toBe('Tertarik riset cyber security dan AI');
+      expect(res.body.data.goldenApplications[0].status).toBe(GoldenStatus.ACCEPTED);
     });
   });
 
