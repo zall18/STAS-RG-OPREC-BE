@@ -19,7 +19,8 @@ export class PublicController {
           endDate: setting.endDate,
           description: setting.description,
           availableRoles: Object.values(RoleInterest),
-          allowGoldenCandidate: !setting.isActive,
+          allowGoldenCandidate: setting.isGoldenCandidateActive,
+          isGoldenCandidateActive: setting.isGoldenCandidateActive,
         },
       });
     } catch (error) {

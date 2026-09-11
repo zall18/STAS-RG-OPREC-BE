@@ -109,9 +109,7 @@ export class CandidateService {
     // 3. Verify that Oprec is currently active
     const setting = await SettingService.getSetting();
     if (!setting.isActive) {
-      const error: any = new Error(
-        'Pendaftaran Oprec saat ini sedang ditutup. Profil Anda tetap tersimpan untuk seleksi jalur Golden Candidate.'
-      );
+      const error: any = new Error('Pendaftaran Oprec saat ini sedang ditutup.');
       error.statusCode = 400;
       throw error;
     }

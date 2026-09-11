@@ -3,6 +3,7 @@ import { SubmitGoldenAppInput, UpdateGoldenAppInput } from '../schemas/golden.sc
 import { GoldenStatus } from '@prisma/client';
 import { ActivityLogService } from './activity-log.service';
 import { NotificationService } from './notification.service';
+import { SettingService } from './setting.service';
 
 export class GoldenService {
   /**
@@ -16,6 +17,13 @@ export class GoldenService {
 
     if (!profile) {
       const error: any = new Error('Lengkapi profil kandidat terlebih dahulu sebelum mengajukan Golden Application');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const setting = await SettingService.getSetting();
+    if (!setting.isGoldenCandidateActive) {
+      const error: any = new Error('Pendaftaran jalur Golden Candidate saat ini sedang ditutup.');
       error.statusCode = 400;
       throw error;
     }

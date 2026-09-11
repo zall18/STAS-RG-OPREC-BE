@@ -1,5 +1,5 @@
 import { prisma } from '../config/prisma';
-import { RoleInterest, SelectionStatus } from '@prisma/client';
+import { RoleInterest, SelectionStatus, GoldenStatus } from '@prisma/client';
 import { SettingService } from './setting.service';
 
 export interface DashboardStatsFilter {
@@ -16,10 +16,12 @@ export class DashboardService {
     // 1. Total Candidate Profiles
     const totalCandidates = await prisma.candidateProfile.count();
 
-    // 2. Total Golden Candidates
+    // 2. Total Golden Candidates (Those with isGoldenCandidate = true)
     const totalGoldenCandidates = await prisma.candidateProfile.count({
       where: { isGoldenCandidate: true },
     });
+
+    const totalGoldenApplications = await prisma.goldenApplication.count();
 
     // 3. Filter clause for OprecRegistrations if batch specified
     const registrationWhere: any = {};
@@ -56,6 +58,21 @@ export class DashboardService {
       acc[curr.status] = curr.count;
       return acc;
     }, {} as Record<SelectionStatus, number>);
+
+    // 5.5 Status distribution for Golden Applications
+    const goldenStatusCounts = await Promise.all(
+      Object.values(GoldenStatus).map(async (status) => {
+        const count = await prisma.goldenApplication.count({
+          where: { status },
+        });
+        return { status, count };
+      })
+    );
+
+    const goldenStatusDistribution = goldenStatusCounts.reduce((acc, curr) => {
+      acc[curr.status] = curr.count;
+      return acc;
+    }, {} as Record<GoldenStatus, number>);
 
     // 6. Total Accepted & Projects Assigned
     const totalAccepted = statusDistribution[SelectionStatus.DITERIMA] || 0;
@@ -102,12 +119,14 @@ export class DashboardService {
       overview: {
         totalCandidates,
         totalGoldenCandidates,
+        totalGoldenApplications,
         totalRegistrations,
         totalAccepted,
         totalAssignedProjects,
       },
       recruitmentSetting: {
         isOprecActive: currentSetting.isActive,
+        isGoldenCandidateActive: currentSetting.isGoldenCandidateActive,
         currentBatch: currentSetting.currentBatch,
         startDate: currentSetting.startDate,
         endDate: currentSetting.endDate,
@@ -118,6 +137,7 @@ export class DashboardService {
           [RoleInterest.MAGANG]: magangCount,
         },
         status: statusDistribution,
+        goldenStatus: goldenStatusDistribution,
       },
       batches,
       recentRegistrations: recentRegistrations.map((r) => ({

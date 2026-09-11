@@ -37,6 +37,7 @@ enum GoldenStatus {
 enum InterviewType {
   ONLINE
   OFFLINE
+  GOLDEN_INTERVIEW
 }
 
 enum InterviewStatus {
@@ -204,13 +205,14 @@ model Announcement {
 }
 
 model RecruitmentSetting {
-  id           String    @id @default(uuid())
-  key          String    @unique @default("DEFAULT")
-  isActive     Boolean   @default(true)
-  currentBatch String    @default("Oprec Batch 1 - 2026")
-  startDate    DateTime?
-  endDate      DateTime?
-  description  String?   @db.Text
-  updatedAt    DateTime  @default(now()) @updatedAt
-  createdAt    DateTime  @default(now())
+  id                      String    @id @default(uuid())
+  key                     String    @unique @default("DEFAULT")
+  isActive                Boolean   @default(true)
+  isGoldenCandidateActive Boolean   @default(false)
+  currentBatch            String    @default("Oprec Batch 1 - 2026")
+  startDate               DateTime?
+  endDate                 DateTime?
+  description             String?   @db.Text
+  updatedAt               DateTime  @default(now()) @updatedAt
+  createdAt               DateTime  @default(now())
 }

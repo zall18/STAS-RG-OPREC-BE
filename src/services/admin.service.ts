@@ -89,9 +89,16 @@ export class AdminService {
             },
           },
         },
-        orderBy: {
-          appliedAt: 'desc',
-        },
+        orderBy: [
+          {
+            candidate: {
+              isGoldenCandidate: 'desc',
+            },
+          },
+          {
+            appliedAt: 'desc',
+          },
+        ],
       }),
     ]);
 

@@ -31,10 +31,21 @@ export class SettingService {
    * Update recruitment settings
    */
   static async updateSetting(input: UpdateRecruitmentSettingInput) {
+    let finalIsActive = input.isActive;
+    let finalIsGoldenActive = input.isGoldenCandidateActive ?? false;
+
+    // Mutual exclusivity
+    if (finalIsActive) {
+      finalIsGoldenActive = false;
+    } else if (finalIsGoldenActive) {
+      finalIsActive = false;
+    }
+
     const setting = await prisma.recruitmentSetting.upsert({
       where: { key: DEFAULT_SETTING_KEY },
       update: {
-        isActive: input.isActive,
+        isActive: finalIsActive,
+        isGoldenCandidateActive: finalIsGoldenActive,
         currentBatch: input.currentBatch,
         startDate: input.startDate ? new Date(input.startDate) : null,
         endDate: input.endDate ? new Date(input.endDate) : null,
@@ -42,7 +53,8 @@ export class SettingService {
       },
       create: {
         key: DEFAULT_SETTING_KEY,
-        isActive: input.isActive,
+        isActive: finalIsActive,
+        isGoldenCandidateActive: finalIsGoldenActive,
         currentBatch: input.currentBatch,
         startDate: input.startDate ? new Date(input.startDate) : null,
         endDate: input.endDate ? new Date(input.endDate) : null,

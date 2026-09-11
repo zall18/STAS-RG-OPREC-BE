@@ -25,6 +25,9 @@ jest.mock('../src/config/prisma', () => ({
       create: jest.fn(),
       upsert: jest.fn(),
     },
+    goldenApplication: {
+      count: jest.fn(),
+    },
   },
 }));
 
@@ -195,6 +198,7 @@ describe('Admin Endpoints (/api/admin)', () => {
       });
       (prisma.candidateProfile.count as jest.Mock).mockResolvedValue(10);
       (prisma.oprecRegistration.count as jest.Mock).mockResolvedValue(8);
+      (prisma.goldenApplication.count as jest.Mock).mockResolvedValue(5);
       (prisma.oprecRegistration.findMany as jest.Mock).mockResolvedValue([]);
       (prisma.oprecRegistration.groupBy as jest.Mock).mockResolvedValue([
         { batchName: 'Oprec Batch 1 - 2026', _count: { id: 8 } },
