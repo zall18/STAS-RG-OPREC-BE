@@ -6,7 +6,7 @@ export const getCandidatesQuerySchema = z.object({
   query: z.object({
     search: z.string().optional(),
     batch: z.string().optional(),
-    status: z.nativeEnum(SelectionStatus).optional(),
+    status: z.union([z.nativeEnum(SelectionStatus), z.nativeEnum(GoldenStatus)]).optional(),
     roleInterest: z.nativeEnum(RoleInterest).optional(),
     isGolden: z
       .string()
@@ -94,7 +94,7 @@ export const updateGoldenStatusSchema = z.object({
   body: z.object({
     status: z.nativeEnum(GoldenStatus, {
       errorMap: () => ({
-        message: 'Status harus salah satu dari: PENDING, REVIEW, ACCEPTED, REJECTED',
+        message: 'Status harus salah satu dari: PENDING, ADMINISTRATIVE, INTERVIEW, ACCEPTED, REJECTED',
       }),
     }),
   }),

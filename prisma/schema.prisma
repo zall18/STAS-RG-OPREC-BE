@@ -29,7 +29,8 @@ enum SelectionStatus {
 
 enum GoldenStatus {
   PENDING
-  REVIEW
+  ADMINISTRATIVE
+  INTERVIEW
   ACCEPTED
   REJECTED
 }

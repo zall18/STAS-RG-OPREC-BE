@@ -9,19 +9,36 @@ export class SettingService {
    * Get current recruitment settings (creates default if not yet seeded)
    */
   static async getSetting() {
-    let setting = await prisma.recruitmentSetting.findUnique({
+    let setting: any = await prisma.recruitmentSetting.findUnique({
       where: { key: DEFAULT_SETTING_KEY },
     });
 
     if (!setting) {
-      setting = await prisma.recruitmentSetting.create({
-        data: {
-          key: DEFAULT_SETTING_KEY,
-          isActive: env.OPREC_IS_ACTIVE,
-          currentBatch: env.CURRENT_OPREC_BATCH,
-          description: 'Pengaturan periode rekrutmen default STAS-RG',
-        },
-      });
+      try {
+        setting = await prisma.recruitmentSetting.create({
+          data: {
+            key: DEFAULT_SETTING_KEY,
+            isActive: env.OPREC_IS_ACTIVE,
+            currentBatch: env.CURRENT_OPREC_BATCH,
+            description: 'Pengaturan periode rekrutmen default STAS-RG',
+          },
+        });
+      } catch (e) {
+        // Fallback below
+      }
+    }
+
+    if (!setting) {
+      setting = {
+        id: 'default',
+        key: DEFAULT_SETTING_KEY,
+        isActive: env.OPREC_IS_ACTIVE,
+        isGoldenCandidateActive: true,
+        currentBatch: env.CURRENT_OPREC_BATCH,
+        description: 'Pengaturan periode rekrutmen default STAS-RG',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
     }
 
     return setting;

@@ -7,7 +7,7 @@ import { GoldenService } from './golden.service';
 export interface GetCandidatesFilter {
   search?: string;
   batch?: string;
-  status?: SelectionStatus;
+  status?: SelectionStatus | GoldenStatus;
   roleInterest?: RoleInterest;
   isGolden?: boolean;
   page?: number;
@@ -60,11 +60,107 @@ export class AdminService {
    * Get all candidates / registrations with pagination and filtering
    */
   static async getCandidates(filter: GetCandidatesFilter) {
-    const whereClause = this.buildWhereClause(filter);
-
     const page = filter.page && filter.page > 0 ? filter.page : 1;
     const limit = filter.limit && filter.limit > 0 ? filter.limit : 10;
     const skip = (page - 1) * limit;
+
+    // If filtering specifically for Golden Candidates
+    if (filter.isGolden === true) {
+      const goldenWhere: any = {};
+
+      if (filter.status) {
+        goldenWhere.status = filter.status;
+      }
+
+      const candidateFilter: any = {};
+
+      if (filter.roleInterest) {
+        candidateFilter.roleInterest = filter.roleInterest;
+      }
+
+      if (filter.search && filter.search.trim() !== '') {
+        const searchTerm = filter.search.trim();
+        candidateFilter.OR = [
+          { fullName: { contains: searchTerm, mode: 'insensitive' } },
+          { nim: { contains: searchTerm, mode: 'insensitive' } },
+          { universitas: { contains: searchTerm, mode: 'insensitive' } },
+          { programStudi: { contains: searchTerm, mode: 'insensitive' } },
+        ];
+      }
+
+      if (Object.keys(candidateFilter).length > 0) {
+        goldenWhere.candidate = candidateFilter;
+      }
+
+      const [total, goldenApps] = await Promise.all([
+        prisma.goldenApplication.count({ where: goldenWhere }),
+        prisma.goldenApplication.findMany({
+          where: goldenWhere,
+          skip,
+          take: limit,
+          include: {
+            registration: true,
+            candidate: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    email: true,
+                    role: true,
+                    createdAt: true,
+                  },
+                },
+                goldenApplications: {
+                  orderBy: { createdAt: 'desc' },
+                },
+              },
+            },
+          },
+          orderBy: {
+            createdAt: 'desc',
+          },
+        }),
+      ]);
+
+      const totalPages = Math.ceil(total / limit) || 1;
+
+      const mappedData = goldenApps.map((app) => ({
+        id: app.registrationId || app.id,
+        candidateId: app.candidateId,
+        batchName: app.registration?.batchName || 'Jalur Golden',
+        status: app.status,
+        assignedProject: app.registration?.assignedProject ?? null,
+        appliedAt: app.createdAt,
+        createdAt: app.createdAt,
+        updatedAt: app.updatedAt,
+        isGoldenTrack: true,
+        goldenApplication: {
+          id: app.id,
+          motivasi: app.motivasi,
+          pencapaian: app.pencapaian,
+          rekomendasi: app.rekomendasi,
+          status: app.status,
+          createdAt: app.createdAt,
+          updatedAt: app.updatedAt,
+        },
+        candidate: {
+          ...app.candidate,
+          isGoldenCandidate: app.status === GoldenStatus.ACCEPTED || app.candidate.isGoldenCandidate,
+        },
+      }));
+
+      return {
+        data: mappedData,
+        meta: {
+          total,
+          page,
+          limit,
+          totalPages,
+        },
+      };
+    }
+
+    const whereClause = this.buildWhereClause(filter);
 
     const [total, registrations] = await Promise.all([
       prisma.oprecRegistration.count({ where: whereClause }),
@@ -119,6 +215,101 @@ export class AdminService {
    * Export all matching candidates to CSV formatted string
    */
   static async exportCandidatesCsv(filter: Omit<GetCandidatesFilter, 'page' | 'limit'>) {
+    const escapeCsv = (str: any) => {
+      if (str === null || str === undefined) return '""';
+      const clean = String(str).replace(/"/g, '""');
+      return `"${clean}"`;
+    };
+
+    if (filter.isGolden === true) {
+      const goldenWhere: any = {};
+
+      if (filter.status) {
+        goldenWhere.status = filter.status;
+      }
+
+      const candidateFilter: any = {};
+
+      if (filter.roleInterest) {
+        candidateFilter.roleInterest = filter.roleInterest;
+      }
+
+      if (filter.search && filter.search.trim() !== '') {
+        const searchTerm = filter.search.trim();
+        candidateFilter.OR = [
+          { fullName: { contains: searchTerm, mode: 'insensitive' } },
+          { nim: { contains: searchTerm, mode: 'insensitive' } },
+          { universitas: { contains: searchTerm, mode: 'insensitive' } },
+          { programStudi: { contains: searchTerm, mode: 'insensitive' } },
+        ];
+      }
+
+      if (Object.keys(candidateFilter).length > 0) {
+        goldenWhere.candidate = candidateFilter;
+      }
+
+      const goldenApps = await prisma.goldenApplication.findMany({
+        where: goldenWhere,
+        include: {
+          registration: true,
+          candidate: {
+            include: {
+              user: {
+                select: {
+                  email: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      const headers = [
+        'Application ID',
+        'Nama Lengkap',
+        'Email',
+        'Universitas',
+        'NIM',
+        'Program Studi',
+        'Role Interest',
+        'IPK',
+        'Semester',
+        'Status Seleksi',
+        'Golden Candidate',
+        'Batch',
+        'Assigned Project',
+        'URL CV',
+        'URL Portofolio',
+        'URL Transkrip',
+        'Tanggal Mendaftar',
+      ];
+
+      const rows = goldenApps.map((app) => [
+        escapeCsv(app.id),
+        escapeCsv(app.candidate.fullName),
+        escapeCsv(app.candidate.user.email),
+        escapeCsv(app.candidate.universitas),
+        escapeCsv(app.candidate.nim),
+        escapeCsv(app.candidate.programStudi),
+        escapeCsv(app.candidate.roleInterest),
+        escapeCsv(app.candidate.ipk ?? '-'),
+        escapeCsv(app.candidate.semester ?? '-'),
+        escapeCsv(app.status),
+        escapeCsv('Ya'),
+        escapeCsv(app.registration?.batchName || 'Jalur Golden'),
+        escapeCsv(app.registration?.assignedProject ?? '-'),
+        escapeCsv(app.candidate.cvUrl),
+        escapeCsv(app.candidate.portfolioUrl),
+        escapeCsv(app.candidate.transkripUrl ?? '-'),
+        escapeCsv(app.createdAt.toISOString()),
+      ]);
+
+      return [headers.join(','), ...rows.map((row) => row.join(','))].join('\r\n');
+    }
+
     const whereClause = this.buildWhereClause(filter);
 
     const records = await prisma.oprecRegistration.findMany({
@@ -159,11 +350,7 @@ export class AdminService {
       'Tanggal Mendaftar',
     ];
 
-    const escapeCsv = (str: any) => {
-      if (str === null || str === undefined) return '""';
-      const clean = String(str).replace(/"/g, '""');
-      return `"${clean}"`;
-    };
+
 
     const rows = records.map((r) => [
       escapeCsv(r.id),
@@ -261,6 +448,22 @@ export class AdminService {
 
       if (registration?.candidate) {
         candidate = registration.candidate;
+      }
+    }
+
+    // 4. Fallback: Try finding via GoldenApplication.id
+    if (!candidate) {
+      const goldenApp = await prisma.goldenApplication.findUnique({
+        where: { id: identifier },
+        include: {
+          candidate: {
+            include: this.candidateDetailInclude,
+          },
+        },
+      });
+
+      if (goldenApp?.candidate) {
+        candidate = goldenApp.candidate;
       }
     }
 

@@ -221,8 +221,10 @@ export class GoldenService {
           ? 'Selamat! Aplikasi Jalur Golden Candidate Anda telah DITERIMA.'
           : status === GoldenStatus.REJECTED
           ? 'Mohon maaf, aplikasi Jalur Golden Candidate Anda belum dapat diterima.'
-          : status === GoldenStatus.REVIEW
-          ? 'Aplikasi Jalur Golden Candidate Anda saat ini sedang dalam tahap REVIEW oleh tim penilai.'
+          : status === GoldenStatus.ADMINISTRATIVE
+          ? 'Aplikasi Jalur Golden Candidate Anda sedang dalam tahap SELEKSI ADMINISTRASI.'
+          : status === GoldenStatus.INTERVIEW
+          ? 'Selamat! Anda lolos ke tahap WAWANCARA Jalur Golden Candidate.'
           : `Status aplikasi Jalur Golden Candidate Anda telah diperbarui menjadi: ${status}.`;
 
       await NotificationService.send(

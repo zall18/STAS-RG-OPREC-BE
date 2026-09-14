@@ -27,6 +27,11 @@ jest.mock('../src/config/prisma', () => ({
     },
     goldenApplication: {
       count: jest.fn(),
+      findMany: jest.fn(),
+      findUnique: jest.fn(),
+      findFirst: jest.fn(),
+      update: jest.fn(),
+      create: jest.fn(),
     },
   },
 }));
@@ -87,6 +92,27 @@ describe('Admin Endpoints (/api/admin)', () => {
   describe('GET /api/admin/candidates', () => {
     it('should allow ADMIN to retrieve candidate list with pagination', async () => {
       (prisma.user.findUnique as jest.Mock).mockResolvedValue(mockAdminUser);
+      (prisma.goldenApplication.count as jest.Mock).mockResolvedValue(1);
+      (prisma.goldenApplication.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 'app-1',
+          candidateId: 'cand-1',
+          status: 'PENDING',
+          motivasi: 'Motivasi',
+          pencapaian: 'Prestasi',
+          rekomendasi: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          registration: null,
+          candidate: {
+            id: 'cand-1',
+            fullName: 'Budi Santoso',
+            isGoldenCandidate: true,
+            user: { email: 'budi@mail.com' },
+            goldenApplications: [],
+          },
+        },
+      ]);
       (prisma.oprecRegistration.count as jest.Mock).mockResolvedValue(1);
       (prisma.oprecRegistration.findMany as jest.Mock).mockResolvedValue([
         {

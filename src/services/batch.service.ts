@@ -1,4 +1,5 @@
 import { prisma } from '../config/prisma';
+import { SelectionStatus } from '@prisma/client';
 import { CreateBatchInput, UpdateBatchInput } from '../schemas/batch.schema';
 import { SettingService } from './setting.service';
 import { ActivityLogService } from './activity-log.service';
@@ -48,28 +49,50 @@ export class BatchService {
    * Get list of all batches with basic candidate counts
    */
   static async getBatches() {
-    const batches = await prisma.batch.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: {
-        _count: {
-          select: { registrations: true },
+    const [batches, acceptedRegistrations = []] = await Promise.all([
+      prisma.batch.findMany({
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: {
+            select: { registrations: true },
+          },
         },
-      },
-    });
+      }),
+      prisma.oprecRegistration.findMany({
+        where: {
+          status: SelectionStatus.DITERIMA,
+        },
+        select: {
+          batchId: true,
+          batchName: true,
+        },
+      }),
+    ]);
 
-    return batches.map((b) => ({
-      id: b.id,
-      name: b.name,
-      description: b.description,
-      startDate: b.startDate,
-      endDate: b.endDate,
-      quota: b.quota,
-      isActive: b.isActive,
-      isArchived: b.isArchived,
-      totalApplicants: b._count.registrations,
-      createdAt: b.createdAt,
-      updatedAt: b.updatedAt,
-    }));
+    const safeAccepted = acceptedRegistrations || [];
+
+    return batches.map((b) => {
+      const filledQuota = safeAccepted.filter(
+        (r) => (r.batchId && r.batchId === b.id) || r.batchName === b.name
+      ).length;
+
+      return {
+        id: b.id,
+        name: b.name,
+        description: b.description,
+        startDate: b.startDate,
+        endDate: b.endDate,
+        quota: b.quota,
+        isActive: b.isActive,
+        isArchived: b.isArchived,
+        totalApplicants: b._count.registrations,
+        filledQuota,
+        currentCandidateCount: filledQuota,
+        acceptedApplicants: filledQuota,
+        createdAt: b.createdAt,
+        updatedAt: b.updatedAt,
+      };
+    });
   }
 
   /**
@@ -115,6 +138,8 @@ export class BatchService {
       }
     });
 
+    const filledQuota = statusBreakdown['DITERIMA'] || 0;
+
     return {
       batch: {
         id: batch.id,
@@ -131,7 +156,10 @@ export class BatchService {
       stats: {
         totalApplicants,
         quota: batch.quota,
-        remainingQuota: batch.quota ? Math.max(0, batch.quota - (statusBreakdown['DITERIMA'] || 0)) : null,
+        filledQuota,
+        currentCandidateCount: filledQuota,
+        acceptedApplicants: filledQuota,
+        remainingQuota: batch.quota ? Math.max(0, batch.quota - filledQuota) : null,
         goldenCandidates: goldenCount,
         statusBreakdown,
         roleBreakdown,

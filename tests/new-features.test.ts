@@ -26,6 +26,8 @@ jest.mock('../src/config/prisma', () => ({
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       update: jest.fn(),
+      count: jest.fn(),
+      findMany: jest.fn(),
     },
     adminNote: {
       create: jest.fn(),
@@ -122,6 +124,13 @@ describe('New Features Integration Tests', () => {
       return Promise.resolve(null);
     });
     (prisma.candidateProfile.findUnique as jest.Mock).mockResolvedValue(mockProfile);
+    (prisma.recruitmentSetting.findUnique as jest.Mock).mockResolvedValue({
+      id: 'setting-1',
+      key: 'DEFAULT',
+      isActive: true,
+      isGoldenCandidateActive: true,
+      currentBatch: 'Batch 1 - 2026',
+    });
   });
 
   describe('Batch Management (F1) - /api/admin/oprec/batches', () => {
@@ -159,6 +168,13 @@ describe('New Features Integration Tests', () => {
           updatedAt: new Date(),
         },
       ]);
+      (prisma.oprecRegistration.findMany as jest.Mock).mockResolvedValue([
+        {
+          batchId: 'b0000000-0000-4000-8000-000000000001',
+          batchName: 'Batch 2 - 2026',
+          status: SelectionStatus.DITERIMA,
+        },
+      ]);
 
       const res = await request(app)
         .get('/api/admin/oprec/batches')
@@ -168,6 +184,7 @@ describe('New Features Integration Tests', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.data.length).toBe(1);
       expect(res.body.data[0].totalApplicants).toBe(12);
+      expect(res.body.data[0].filledQuota).toBe(1);
     });
 
     it('PATCH /api/admin/oprec/batches/:id/activate - should activate target batch', async () => {
@@ -347,6 +364,71 @@ describe('New Features Integration Tests', () => {
       expect(res.body.data.goldenApplications).toHaveLength(1);
       expect(res.body.data.goldenApplications[0].motivasi).toBe('Tertarik riset cyber security dan AI');
       expect(res.body.data.goldenApplications[0].status).toBe(GoldenStatus.ACCEPTED);
+    });
+
+    it('PATCH /api/admin/candidates/:id/golden-status - should support ADMINISTRATIVE and INTERVIEW stages', async () => {
+      (prisma.goldenApplication.findUnique as jest.Mock).mockResolvedValue({
+        id: '50000000-0000-4000-8000-000000000001',
+        candidateId: mockProfile.id,
+        status: GoldenStatus.PENDING,
+        candidate: {
+          ...mockProfile,
+          userId: candidateUser.id,
+        },
+      });
+      (prisma.goldenApplication.update as jest.Mock).mockResolvedValue({
+        id: '50000000-0000-4000-8000-000000000001',
+        candidateId: mockProfile.id,
+        status: GoldenStatus.ADMINISTRATIVE,
+        candidate: {
+          ...mockProfile,
+          userId: candidateUser.id,
+          user: { email: candidateUser.email },
+        },
+      });
+      (prisma.candidateProfile.update as jest.Mock).mockResolvedValue({
+        ...mockProfile,
+        isGoldenCandidate: false,
+      });
+
+      const res = await request(app)
+        .patch(`/api/admin/candidates/${mockProfile.id}/golden-status`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ status: GoldenStatus.ADMINISTRATIVE });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.status).toBe(GoldenStatus.ADMINISTRATIVE);
+    });
+
+    it('GET /api/admin/candidates?isGolden=true - should list golden applications correctly', async () => {
+      (prisma.goldenApplication.count as jest.Mock).mockResolvedValue(1);
+      (prisma.goldenApplication.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: '50000000-0000-4000-8000-000000000001',
+          candidateId: mockProfile.id,
+          motivasi: 'Motivasi riset',
+          pencapaian: 'Prestasi Juara 1',
+          rekomendasi: 'Dosen A',
+          status: GoldenStatus.INTERVIEW,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          registration: null,
+          candidate: {
+            ...mockProfile,
+            goldenApplications: [],
+          },
+        },
+      ]);
+
+      const res = await request(app)
+        .get('/api/admin/candidates?isGolden=true')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.length).toBe(1);
+      expect(res.body.data[0].status).toBe(GoldenStatus.INTERVIEW);
+      expect(res.body.data[0].batchName).toBe('Jalur Golden');
     });
   });
 
