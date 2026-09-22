@@ -5,7 +5,7 @@ const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 Megabytes
 
 const storage = multer.memoryStorage();
 
-const allowedMimetypes = ['application/pdf', 'application/x-pdf', 'application/octet-stream'];
+const allowedMimetypes = ['application/pdf', 'application/x-pdf'];
 
 const fileFilter = (
   req: Request,
@@ -15,7 +15,7 @@ const fileFilter = (
   const hasPdfMime = allowedMimetypes.includes(file.mimetype);
   const hasPdfExt = file.originalname.toLowerCase().endsWith('.pdf');
 
-  if (hasPdfMime || hasPdfExt) {
+  if (hasPdfMime && hasPdfExt) {
     callback(null, true);
   } else {
     callback(new Error('Hanya file PDF (application/pdf) yang diperbolehkan'));

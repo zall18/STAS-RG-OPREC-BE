@@ -10,6 +10,7 @@ import notificationRoutes from './notification.routes';
 import interviewRoutes from './interview.routes';
 import activityLogRoutes from './activity-log.routes';
 import announcementRoutes from './announcement.routes';
+import adminUserRoutes from './admin-user.routes';
 
 const router = Router();
 
@@ -33,6 +34,7 @@ router.use('/admin/oprec/batches', batchRoutes);
 router.use('/admin/interviews', interviewRoutes);
 router.use('/admin/activity-logs', activityLogRoutes);
 router.use('/admin/announcements', announcementRoutes);
+router.use('/admin/admins', adminUserRoutes);
 router.use('/admin', adminRoutes);
 
 router.use('/upload', uploadRoutes);

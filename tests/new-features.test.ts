@@ -28,6 +28,7 @@ jest.mock('../src/config/prisma', () => ({
       update: jest.fn(),
       count: jest.fn(),
       findMany: jest.fn(),
+      groupBy: jest.fn(),
     },
     adminNote: {
       create: jest.fn(),

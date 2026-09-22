@@ -41,38 +41,46 @@ export class DashboardService {
       where: { roleInterest: RoleInterest.MAGANG },
     });
 
-    // 5. Status distribution for registrations
-    const statusCounts = await Promise.all(
-      Object.values(SelectionStatus).map(async (status) => {
-        const count = await prisma.oprecRegistration.count({
-          where: {
-            ...registrationWhere,
-            status,
-          },
-        });
-        return { status, count };
-      })
-    );
+    // 5. Status distribution for registrations (Optimized with groupBy)
+    const statusGroups = await prisma.oprecRegistration.groupBy({
+      by: ['status'],
+      where: registrationWhere,
+      _count: { id: true },
+    });
 
-    const statusDistribution = statusCounts.reduce((acc, curr) => {
-      acc[curr.status] = curr.count;
+    const statusDistribution = Object.values(SelectionStatus).reduce((acc, status) => {
+      acc[status] = 0;
       return acc;
     }, {} as Record<SelectionStatus, number>);
 
-    // 5.5 Status distribution for Golden Applications
-    const goldenStatusCounts = await Promise.all(
-      Object.values(GoldenStatus).map(async (status) => {
-        const count = await prisma.goldenApplication.count({
-          where: { status },
-        });
-        return { status, count };
-      })
-    );
+    if (Array.isArray(statusGroups)) {
+      statusGroups.forEach((g: any) => {
+        if (g.status) {
+          statusDistribution[g.status as SelectionStatus] = g._count?.id ?? g._count ?? 0;
+        }
+      });
+    }
 
-    const goldenStatusDistribution = goldenStatusCounts.reduce((acc, curr) => {
-      acc[curr.status] = curr.count;
+    // 5.5 Status distribution for Golden Applications (Optimized with groupBy)
+    const goldenGroups = (prisma.goldenApplication as any).groupBy
+      ? await (prisma.goldenApplication as any).groupBy({
+          by: ['status'],
+          _count: { id: true },
+        })
+      : [];
+
+    const goldenStatusDistribution = Object.values(GoldenStatus).reduce((acc, status) => {
+      acc[status] = 0;
       return acc;
     }, {} as Record<GoldenStatus, number>);
+
+    if (Array.isArray(goldenGroups)) {
+      goldenGroups.forEach((g: any) => {
+        if (g.status) {
+          goldenStatusDistribution[g.status as GoldenStatus] = g._count?.id ?? g._count ?? 0;
+        }
+      });
+    }
 
     // 6. Total Accepted & Projects Assigned
     const totalAccepted = statusDistribution[SelectionStatus.DITERIMA] || 0;

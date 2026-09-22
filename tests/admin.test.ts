@@ -32,6 +32,7 @@ jest.mock('../src/config/prisma', () => ({
       findFirst: jest.fn(),
       update: jest.fn(),
       create: jest.fn(),
+      groupBy: jest.fn(),
     },
   },
 }));

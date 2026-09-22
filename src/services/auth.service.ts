@@ -28,7 +28,7 @@ export class AuthService {
       data: {
         email: input.email.toLowerCase(),
         password: hashedPassword,
-        role: input.role || UserRole.CANDIDATE,
+        role: UserRole.CANDIDATE,
       },
       select: {
         id: true,

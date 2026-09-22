@@ -32,9 +32,9 @@ export const updateStatusSchema = z.object({
     registrationId: z.string().uuid('ID Registrasi tidak valid'),
   }),
   body: z.object({
-    status: z.nativeEnum(SelectionStatus, {
+    status: z.union([z.nativeEnum(SelectionStatus), z.nativeEnum(GoldenStatus)], {
       errorMap: () => ({
-        message: 'Status harus salah satu dari: PENDING, SELEKSI_BERKAS, WAWANCARA_1, WAWANCARA_2, DITERIMA',
+        message: 'Status seleksi tidak valid (harus merupakan SelectionStatus atau GoldenStatus valid)',
       }),
     }),
   }),

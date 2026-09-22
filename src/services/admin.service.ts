@@ -217,7 +217,11 @@ export class AdminService {
   static async exportCandidatesCsv(filter: Omit<GetCandidatesFilter, 'page' | 'limit'>) {
     const escapeCsv = (str: any) => {
       if (str === null || str === undefined) return '""';
-      const clean = String(str).replace(/"/g, '""');
+      let clean = String(str).replace(/"/g, '""');
+      // Defend against CSV formula injection (CWE-1236)
+      if (/^[=+\-@\t\r]/.test(clean)) {
+        clean = `'${clean}`;
+      }
       return `"${clean}"`;
     };
 
@@ -477,33 +481,135 @@ export class AdminService {
   }
 
   /**
-   * Update Selection Status for an Oprec Registration
+   * Update Selection Status for an Oprec Registration or Golden Application
    */
-  static async updateSelectionStatus(registrationId: string, status: SelectionStatus) {
+  static async updateSelectionStatus(
+    registrationId: string,
+    status: SelectionStatus | GoldenStatus,
+    adminId?: string
+  ) {
     const registration = await prisma.oprecRegistration.findUnique({
       where: { id: registrationId },
     });
 
+    // If not found in OprecRegistration, check if registrationId belongs to a Golden Candidate
     if (!registration) {
-      const error: any = new Error('Pendaftaran Oprec tidak ditemukan');
+      const goldenApp = await prisma.goldenApplication.findFirst({
+        where: {
+          OR: [
+            { id: registrationId },
+            { candidateId: registrationId },
+            { candidate: { userId: registrationId } },
+          ],
+        },
+        include: {
+          candidate: {
+            include: { user: true },
+          },
+        },
+      });
+
+      if (goldenApp) {
+        // Map SelectionStatus / input to GoldenStatus
+        let targetGoldenStatus: GoldenStatus = GoldenStatus.PENDING;
+        const s = String(status).toUpperCase();
+        if (s === 'DITERIMA' || s === 'ACCEPTED') {
+          targetGoldenStatus = GoldenStatus.ACCEPTED;
+        } else if (s === 'DITOLAK' || s === 'REJECTED') {
+          targetGoldenStatus = GoldenStatus.REJECTED;
+        } else if (s === 'WAWANCARA_1' || s === 'WAWANCARA_2' || s === 'INTERVIEW') {
+          targetGoldenStatus = GoldenStatus.INTERVIEW;
+        } else if (s === 'SELEKSI_BERKAS' || s === 'ADMINISTRATIVE') {
+          targetGoldenStatus = GoldenStatus.ADMINISTRATIVE;
+        } else if (Object.values(GoldenStatus).includes(status as GoldenStatus)) {
+          targetGoldenStatus = status as GoldenStatus;
+        }
+
+        const updatedGolden = await GoldenService.updateGoldenStatus(
+          adminId || 'system',
+          goldenApp.id,
+          targetGoldenStatus
+        );
+
+        return {
+          id: goldenApp.id,
+          candidateId: goldenApp.candidateId,
+          batchName: 'Jalur Golden',
+          status: targetGoldenStatus,
+          assignedProject: null,
+          candidate: updatedGolden.candidate,
+          isGoldenTrack: true,
+        };
+      }
+
+      const error: any = new Error('Pendaftaran Oprec atau Jalur Golden tidak ditemukan');
       error.statusCode = 404;
       throw error;
     }
 
+    // Quota validation if accepting candidate
+    if (status === SelectionStatus.DITERIMA && registration.batchId) {
+      const batch = await prisma.batch.findUnique({
+        where: { id: registration.batchId },
+      });
+      if (batch && batch.quota !== null && batch.quota !== undefined) {
+        const acceptedCount = await prisma.oprecRegistration.count({
+          where: {
+            OR: [
+              { batchId: batch.id, status: SelectionStatus.DITERIMA },
+              { batchName: batch.name, status: SelectionStatus.DITERIMA },
+            ],
+            id: { not: registrationId },
+          },
+        });
+        if (acceptedCount >= batch.quota) {
+          const error: any = new Error(
+            `Kuota penerimaan untuk batch "${batch.name}" telah penuh (${acceptedCount}/${batch.quota})`
+          );
+          error.statusCode = 400;
+          throw error;
+        }
+      }
+    }
+
     const updated = await prisma.oprecRegistration.update({
       where: { id: registrationId },
-      data: { status },
+      data: { status: status as SelectionStatus },
       include: {
-        candidate: true,
+        candidate: {
+          include: {
+            user: true,
+          },
+        },
       },
     });
+
+    // Notify candidate
+    if (updated.candidate?.userId) {
+      await NotificationService.send(
+        updated.candidate.userId,
+        'Pembaruan Status Seleksi',
+        `Status seleksi Anda untuk ${updated.batchName} telah diperbarui menjadi: ${status}`
+      );
+    }
+
+    // Audit log
+    if (adminId) {
+      await ActivityLogService.record({
+        userId: adminId,
+        action: 'UPDATE_STATUS',
+        targetType: 'OPREC_REGISTRATION',
+        targetId: registrationId,
+        details: { status, batchName: updated.batchName },
+      });
+    }
 
     return updated;
   }
 
   /**
    * Assign Project Name to accepted candidate
-   * Business Constraint: Only allowed if registration status is 'DITERIMA'
+   * Business Constraint: Only allowed if registration status is 'DITERIMA' / 'ACCEPTED'
    */
   static async assignProject(registrationId: string, assignedProject: string) {
     const registration = await prisma.oprecRegistration.findUnique({
@@ -511,6 +617,48 @@ export class AdminService {
     });
 
     if (!registration) {
+      // Check if it's a Golden Candidate
+      const goldenApp = await prisma.goldenApplication.findFirst({
+        where: {
+          OR: [
+            { id: registrationId },
+            { candidateId: registrationId },
+            { candidate: { userId: registrationId } },
+          ],
+        },
+        include: {
+          candidate: true,
+          registration: true,
+        },
+      });
+
+      if (goldenApp) {
+        if (goldenApp.status !== GoldenStatus.ACCEPTED) {
+          const error: any = new Error(
+            `Alokasi proyek hanya dapat dilakukan untuk kandidat dengan status ACCEPTED (Status saat ini: ${goldenApp.status})`
+          );
+          error.statusCode = 400;
+          throw error;
+        }
+
+        if (goldenApp.registrationId) {
+          const updatedReg = await prisma.oprecRegistration.update({
+            where: { id: goldenApp.registrationId },
+            data: { assignedProject },
+            include: { candidate: true },
+          });
+          return updatedReg;
+        }
+
+        return {
+          id: goldenApp.id,
+          candidateId: goldenApp.candidateId,
+          assignedProject,
+          candidate: goldenApp.candidate,
+          isGoldenTrack: true,
+        };
+      }
+
       const error: any = new Error('Pendaftaran Oprec tidak ditemukan');
       error.statusCode = 404;
       throw error;
@@ -594,12 +742,24 @@ export class AdminService {
   ) {
     const candidate = await this.getCandidateById(candidateIdentifier);
 
+    // Validate if registrationId actually exists in OprecRegistration
+    // (Prevents Foreign Key Violation for Golden candidates who don't have an oprec registration)
+    let validRegistrationId: string | null = null;
+    if (registrationId) {
+      const reg = await prisma.oprecRegistration.findUnique({
+        where: { id: registrationId },
+      });
+      if (reg) {
+        validRegistrationId = reg.id;
+      }
+    }
+
     const note = await prisma.adminNote.create({
       data: {
         candidateId: candidate.id,
         adminId,
         content,
-        registrationId: registrationId ?? null,
+        registrationId: validRegistrationId,
       },
       include: {
         admin: {

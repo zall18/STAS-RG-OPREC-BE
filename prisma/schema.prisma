@@ -123,6 +123,9 @@ model OprecRegistration {
   adminNotes        AdminNote[]
 
   @@unique([candidateId, batchName])
+  @@index([batchName])
+  @@index([status])
+  @@index([appliedAt])
 }
 
 model GoldenApplication {
@@ -139,6 +142,9 @@ model GoldenApplication {
 
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
+
+  @@index([candidateId])
+  @@index([status])
 }
 
 model AdminNote {
@@ -146,7 +152,7 @@ model AdminNote {
   candidateId    String
   candidate      CandidateProfile   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
   registrationId String?
-  registration   OprecRegistration? @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  registration   OprecRegistration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
   adminId        String
   admin          User               @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
@@ -163,6 +169,8 @@ model Notification {
   message   String   @db.Text
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
 }
 
 model Interview {
@@ -181,6 +189,9 @@ model Interview {
 
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
+
+  @@index([datetime])
+  @@index([status])
 }
 
 model ActivityLog {
@@ -192,6 +203,10 @@ model ActivityLog {
   targetId   String?
   details    String?  @db.Text
   createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([userId])
+  @@index([action])
 }
 
 model Announcement {

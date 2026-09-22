@@ -12,6 +12,16 @@ export class UploadController {
         return;
       }
 
+      // Verify PDF Magic Bytes (%PDF)
+      const magicBytes = req.file.buffer.length >= 4 ? req.file.buffer.subarray(0, 4).toString('utf8') : '';
+      if (magicBytes !== '%PDF') {
+        res.status(400).json({
+          success: false,
+          message: 'File yang diunggah bukan dokumen PDF yang valid (magic bytes mismatch)',
+        });
+        return;
+      }
+
       const folderType = (req.body.type as 'cv' | 'transkrip' | 'others') || 'cv';
       const publicUrl = await StorageService.uploadDocument(
         req.file.buffer,

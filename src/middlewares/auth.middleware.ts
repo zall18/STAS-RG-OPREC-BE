@@ -26,27 +26,6 @@ export const authenticate = async (
     try {
       decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
     } catch {
-      // Fallback verification if Supabase JWT format is used
-      // For Supabase token: payload typically has sub as user ID
-      try {
-        const decodedRaw = jwt.decode(token) as any;
-        if (decodedRaw && (decodedRaw.sub || decodedRaw.userId)) {
-          const userId = decodedRaw.userId || decodedRaw.sub;
-          const userInDb = await prisma.user.findUnique({ where: { id: userId } });
-          if (userInDb) {
-            req.user = {
-              id: userInDb.id,
-              email: userInDb.email,
-              role: userInDb.role,
-            };
-            next();
-            return;
-          }
-        }
-      } catch {
-        // Ignore fallback error
-      }
-
       res.status(401).json({
         success: false,
         message: 'Token autentikasi tidak valid atau telah kedaluwarsa',

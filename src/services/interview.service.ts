@@ -21,12 +21,24 @@ export class InterviewService {
   static async createInterview(adminId: string, input: CreateInterviewInput) {
     const candidate = await AdminService.getCandidateById(input.candidateId);
 
+    // Validate if registrationId actually exists in OprecRegistration
+    // (Prevents Foreign Key Violation for Golden candidates who don't have an oprec registration)
+    let validRegistrationId: string | null = null;
+    if (input.registrationId) {
+      const reg = await prisma.oprecRegistration.findUnique({
+        where: { id: input.registrationId },
+      });
+      if (reg) {
+        validRegistrationId = reg.id;
+      }
+    }
+
     const interviewDate = new Date(input.datetime);
 
     const interview = await prisma.interview.create({
       data: {
         candidateId: candidate.id,
-        registrationId: input.registrationId ?? null,
+        registrationId: validRegistrationId,
         datetime: interviewDate,
         location: input.location ?? null,
         type: input.type ?? InterviewType.ONLINE,

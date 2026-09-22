@@ -73,12 +73,13 @@ export class AdminController {
   /**
    * Update candidate selection status
    */
-  static async updateStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+  static async updateStatus(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
     try {
+      const adminId = req.user?.id;
       const { registrationId } = req.params;
       const { status } = req.body;
 
-      const updated = await AdminService.updateSelectionStatus(registrationId, status);
+      const updated = await AdminService.updateSelectionStatus(registrationId, status, adminId);
 
       res.status(200).json({
         success: true,

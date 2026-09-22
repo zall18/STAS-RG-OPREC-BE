@@ -114,7 +114,49 @@ export class CandidateService {
       throw error;
     }
 
+    const now = new Date();
+    if (setting.endDate && now > new Date(setting.endDate)) {
+      const error: any = new Error('Pendaftaran Oprec saat ini sudah berakhir.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (setting.startDate && now < new Date(setting.startDate)) {
+      const error: any = new Error('Pendaftaran Oprec belum dibuka.');
+      error.statusCode = 400;
+      throw error;
+    }
+
     const targetBatch = input.batchName || setting.currentBatch;
+
+    // Try to find matching Batch record for relational reference & validation
+    const batchRecord = (prisma as any).batch
+      ? await prisma.batch.findUnique({
+          where: { name: targetBatch },
+        })
+      : null;
+
+    if (batchRecord) {
+      if (batchRecord.isArchived || batchRecord.isActive === false) {
+        const error: any = new Error(`Pendaftaran untuk batch "${targetBatch}" saat ini tidak aktif.`);
+        error.statusCode = 400;
+        throw error;
+      }
+      if (batchRecord.endDate && now > new Date(batchRecord.endDate)) {
+        const error: any = new Error(
+          `Batas waktu pendaftaran untuk batch "${targetBatch}" telah berakhir pada ${new Date(batchRecord.endDate).toLocaleDateString('id-ID')}.`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+      if (batchRecord.startDate && now < new Date(batchRecord.startDate)) {
+        const error: any = new Error(
+          `Pendaftaran untuk batch "${targetBatch}" belum dibuka.`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+    }
 
     // 4. Check for duplicate registration in the same batch
     const existingRegistration = await prisma.oprecRegistration.findUnique({
@@ -131,13 +173,6 @@ export class CandidateService {
       error.statusCode = 409;
       throw error;
     }
-
-    // Try to find matching Batch record for relational reference
-    const batchRecord = (prisma as any).batch
-      ? await prisma.batch.findUnique({
-          where: { name: targetBatch },
-        })
-      : null;
 
 
     // 5. Create registration record
