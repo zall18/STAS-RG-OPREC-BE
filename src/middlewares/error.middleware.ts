@@ -2,8 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
 import multer from 'multer';
 
-export interface AppError extends Error {
-  statusCode?: number;
+export class AppError extends Error {
+  statusCode: number;
+
+  constructor(message: string, statusCode: number = 400) {
+    super(message);
+    this.statusCode = statusCode;
+    Object.setPrototypeOf(this, AppError.prototype);
+  }
 }
 
 export const errorHandler = (

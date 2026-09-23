@@ -19,6 +19,20 @@ const envSchema = z.object({
     .transform((val) => val === 'true' || val === '1')
     .default('true'),
   CURRENT_OPREC_BATCH: z.string().default('Oprec Batch 1 - 2026'),
+  // SMTP Email Configuration
+  SMTP_HOST: z.string().default('smtp.gmail.com'),
+  SMTP_PORT: z
+    .string()
+    .transform((val) => parseInt(val, 10))
+    .default('465'),
+  SMTP_SECURE: z
+    .string()
+    .transform((val) => val === 'true' || val === '1')
+    .default('true'),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().default('STAS-RG Recruitment <noreply@stas-rg.ac.id>'),
+  FRONTEND_URL: z.string().default('http://localhost:3000'),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -45,4 +59,11 @@ export const env = parsed.success
       SUPABASE_STORAGE_BUCKET: 'documents',
       OPREC_IS_ACTIVE: true,
       CURRENT_OPREC_BATCH: 'Oprec Batch 1 - 2026',
+      SMTP_HOST: 'smtp.gmail.com',
+      SMTP_PORT: 465,
+      SMTP_SECURE: true,
+      SMTP_USER: process.env.SMTP_USER || undefined,
+      SMTP_PASS: process.env.SMTP_PASS || undefined,
+      SMTP_FROM: 'STAS-RG Recruitment <noreply@stas-rg.ac.id>',
+      FRONTEND_URL: 'http://localhost:3000',
     };
