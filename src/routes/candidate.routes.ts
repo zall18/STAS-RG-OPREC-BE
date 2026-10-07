@@ -4,7 +4,7 @@ import { InterviewController } from '../controllers/interview.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { validateRequest } from '../middlewares/validate.middleware';
 import { upsertProfileSchema, applyOprecSchema } from '../schemas/candidate.schema';
-import { interviewIdParamSchema } from '../schemas/interview.schema';
+import { interviewIdParamSchema, requestRescheduleSchema } from '../schemas/interview.schema';
 
 const router = Router();
 
@@ -21,6 +21,7 @@ router.get('/registrations', CandidateController.getRegistrations);
 // Candidate Interview Schedules (F7)
 router.get('/interviews', InterviewController.getCandidateInterviews);
 router.patch('/interviews/:id/confirm', validateRequest(interviewIdParamSchema), InterviewController.confirmInterview);
+router.post('/interviews/:id/reschedule', validateRequest(requestRescheduleSchema), InterviewController.requestReschedule);
 
 export default router;
 

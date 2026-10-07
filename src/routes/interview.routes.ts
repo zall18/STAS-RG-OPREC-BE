@@ -8,6 +8,8 @@ import {
   updateInterviewSchema,
   interviewIdParamSchema,
   getInterviewsQuerySchema,
+  approveRescheduleSchema,
+  rejectRescheduleSchema,
 } from '../schemas/interview.schema';
 
 const router = Router();
@@ -20,5 +22,9 @@ router.post('/', validateRequest(createInterviewSchema), InterviewController.cre
 router.get('/', validateRequest(getInterviewsQuerySchema), InterviewController.getAdminInterviews);
 router.patch('/:id', validateRequest(updateInterviewSchema), InterviewController.updateInterview);
 router.delete('/:id', validateRequest(interviewIdParamSchema), InterviewController.cancelInterview);
+
+// Reschedule review actions (Admin)
+router.post('/:id/reschedule-approve', validateRequest(approveRescheduleSchema), InterviewController.approveReschedule);
+router.post('/:id/reschedule-reject', validateRequest(rejectRescheduleSchema), InterviewController.rejectReschedule);
 
 export default router;

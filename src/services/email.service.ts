@@ -397,4 +397,121 @@ export class EmailService {
       return false;
     }
   }
+
+  /**
+   * Mengirim email pemberitahuan notifikasi baru untuk kandidat
+   */
+  static async sendNotificationAlertEmail(
+    to: string,
+    notificationTitle: string,
+    _notificationMessage?: string
+  ): Promise<boolean> {
+    if (!env.SMTP_USER || !env.SMTP_PASS || env.NODE_ENV === 'test') {
+      console.log(`\n🔔 [DEV/MOCK] New Notification Alert Email to: ${to} | Title: "${notificationTitle}"\n`);
+      return true;
+    }
+
+    const websiteUrl = env.FRONTEND_URL || 'http://localhost:3000';
+
+    const htmlContent = `
+    <!DOCTYPE html>
+    <html lang="id">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Ada Notifikasi Terbaru - STAS-RG</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #1e293b;">
+      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="table-layout: fixed; background-color: #f1f5f9; padding: 40px 10px;">
+        <tr>
+          <td align="center">
+            <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04);">
+              
+              <!-- Header Brand -->
+              <tr>
+                <td align="center" style="background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); padding: 36px 30px; text-align: center;">
+                  <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 800; letter-spacing: 1px;">STAS-RG LAB</h1>
+                  <p style="margin: 6px 0 0; color: #bfdbfe; font-size: 13px; font-weight: 500; letter-spacing: 0.5px;">RECRUITMENT & SELECTION PORTAL</p>
+                </td>
+              </tr>
+
+              <!-- Content Body -->
+              <tr>
+                <td style="padding: 36px 32px 28px;">
+                  <div style="text-align: center; margin-bottom: 20px;">
+                    <span style="background-color: #eff6ff; color: #1d4ed8; font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 9999px; display: inline-block; letter-spacing: 0.5px; border: 1px solid #bfdbfe;">
+                      🔔 PEMBERITAHUAN TERBARU
+                    </span>
+                  </div>
+
+                  <h2 style="margin: 0 0 12px; color: #0f172a; font-size: 20px; font-weight: 700; text-align: center;">Ada Notifikasi Terbaru untuk Anda</h2>
+                  <p style="margin: 0 0 24px; color: #475569; font-size: 14px; line-height: 1.6; text-align: center;">
+                    Halo Rekan Kandidat, Anda memiliki pembaruan informasi penting terkait proses rekrutmen Anda di <strong>STAS-RG Lab</strong>.
+                  </p>
+
+                  <!-- Card Info Notifikasi -->
+                  <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 22px 24px; margin-bottom: 28px; text-align: center;">
+                    <p style="margin: 0 0 8px; font-size: 15px; font-weight: 700; color: #1e3a8a;">
+                      Pemberitahuan Baru Tersedia
+                    </p>
+                    <p style="margin: 0; font-size: 13px; color: #64748b; line-height: 1.6;">
+                      Terdapat notifikasi terbaru pada akun Anda. Silakan masuk ke website resmi kami untuk melihat informasi dan detail selengkapnya.
+                    </p>
+                  </div>
+
+                  <!-- Call To Action Button -->
+                  <div style="text-align: center; margin: 32px 0 24px;">
+                    <a href="${websiteUrl}" target="_blank" style="background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 100%); color: #ffffff; text-decoration: none; padding: 16px 36px; border-radius: 10px; font-weight: 800; font-size: 15px; display: inline-block; letter-spacing: 0.5px; box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);">
+                      🌐 BUKA WEBSITE STAS-RG
+                    </a>
+                    <p style="margin: 10px 0 0; font-size: 12px; color: #64748b;">
+                      Klik tombol di atas untuk membuka portal pendaftaran
+                    </p>
+                  </div>
+
+                  <!-- Fallback Link -->
+                  <p style="margin: 0; font-size: 11px; color: #94a3b8; line-height: 1.5; word-break: break-all; text-align: center;">
+                    Tautan langsung: <a href="${websiteUrl}" style="color: #2563eb; text-decoration: underline;">${websiteUrl}</a>
+                  </p>
+                </td>
+              </tr>
+
+              <!-- Footer -->
+              <tr>
+                <td style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 18px 32px; text-align: center;">
+                  <p style="margin: 0 0 4px; color: #64748b; font-size: 12px; font-weight: 600;">
+                    Smart Telecommunication and Sensor Research Group (STAS-RG)
+                  </p>
+                  <p style="margin: 0; color: #94a3b8; font-size: 11px;">
+                    Email notifikasi otomatis • Jangan membalas email ini secara langsung
+                  </p>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+    `;
+
+    try {
+      const transporter = this.getTransporter();
+      if (!transporter) return false;
+
+      await transporter.sendMail({
+        from: env.SMTP_FROM,
+        to,
+        subject: '[STAS-RG] Ada Notifikasi Terbaru, Silakan Cek Website',
+        html: htmlContent,
+      });
+
+      console.log(`✅ [EmailService] Notifikasi email generik terkirim ke ${to}`);
+      return true;
+    } catch (error: any) {
+      console.error(`❌ [EmailService Error] Gagal mengirim notifikasi email ke ${to}:`, error.message);
+      return false;
+    }
+  }
 }

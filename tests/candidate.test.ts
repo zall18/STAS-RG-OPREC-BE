@@ -62,6 +62,9 @@ describe('Candidate Endpoints (/api/candidate)', () => {
       roleInterest: RoleInterest.RISET,
       cvUrl: 'https://mock.supabase.co/storage/v1/object/public/documents/cv/sample.pdf',
       transkripUrl: 'https://mock.supabase.co/storage/v1/object/public/documents/transkrip/sample.pdf',
+      ksmUrl: 'https://mock.supabase.co/storage/v1/object/public/documents/ksm/sample.pdf',
+      eprtUrl: 'https://mock.supabase.co/storage/v1/object/public/documents/eprt/sample.pdf',
+      linkedinUrl: 'https://linkedin.com/in/ahmadfauzi',
       ipk: 3.85,
       semester: 6,
       portfolioUrl: 'https://ahmadfauzi.dev',
@@ -86,6 +89,23 @@ describe('Candidate Endpoints (/api/candidate)', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.fullName).toBe('Ahmad Fauzi');
+    });
+
+    it('should reject profile upsert if NIM is already used by another candidate', async () => {
+      (prisma.candidateProfile.findUnique as jest.Mock).mockResolvedValue({
+        id: 'prof-other',
+        userId: 'other-user-456',
+        nim: '1234567890',
+      });
+
+      const res = await request(app)
+        .post('/api/candidate/profile')
+        .set('Authorization', `Bearer ${token}`)
+        .send(validPayload);
+
+      expect(res.status).toBe(409);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('NIM ini sudah terdaftar');
     });
 
     it('should reject profile submission with invalid role interest', async () => {
@@ -143,6 +163,10 @@ describe('Candidate Endpoints (/api/candidate)', () => {
         programStudi: 'Teknik Komputer',
         roleInterest: RoleInterest.RISET,
         cvUrl: 'https://mock.supabase.co/cv.pdf',
+        transkripUrl: 'https://mock.supabase.co/transkrip.pdf',
+        ksmUrl: 'https://mock.supabase.co/ksm.pdf',
+        eprtUrl: 'https://mock.supabase.co/eprt.pdf',
+        linkedinUrl: 'https://linkedin.com/in/ahmadfauzi',
         portfolioUrl: 'https://ahmadfauzi.dev',
       });
 
@@ -169,7 +193,7 @@ describe('Candidate Endpoints (/api/candidate)', () => {
         id: 'prof-123',
         userId: mockUser.id,
         fullName: 'Ahmad Fauzi',
-        // Missing universitas, nim, prodi, cvUrl
+        // Missing universitas, nim, prodi, cvUrl, ksmUrl, eprtUrl, etc.
       });
 
       const res = await request(app)
@@ -179,7 +203,7 @@ describe('Candidate Endpoints (/api/candidate)', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.success).toBe(false);
-      expect(res.body.message).toContain('Field wajib belum lengkap');
+      expect(res.body.message).toContain('Field berkas dan data wajib belum lengkap');
     });
 
     it('should reject duplicate application for the same batch', async () => {
@@ -192,6 +216,10 @@ describe('Candidate Endpoints (/api/candidate)', () => {
         programStudi: 'Teknik Komputer',
         roleInterest: RoleInterest.RISET,
         cvUrl: 'https://mock.supabase.co/cv.pdf',
+        transkripUrl: 'https://mock.supabase.co/transkrip.pdf',
+        ksmUrl: 'https://mock.supabase.co/ksm.pdf',
+        eprtUrl: 'https://mock.supabase.co/eprt.pdf',
+        linkedinUrl: 'https://linkedin.com/in/ahmadfauzi',
         portfolioUrl: 'https://ahmadfauzi.dev',
       });
 

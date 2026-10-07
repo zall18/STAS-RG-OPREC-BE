@@ -82,6 +82,20 @@ export class AuthService {
       throw new AppError('Email sudah terdaftar', 409);
     }
 
+    // Verifikasi keunikan NIM jika dikirim saat registrasi
+    if (input.nim) {
+      const trimmedNim = input.nim.trim();
+      const existingWithNim = await prisma.candidateProfile.findUnique({
+        where: { nim: trimmedNim },
+      });
+      if (existingWithNim) {
+        throw new AppError(
+          'NIM ini sudah terdaftar pada akun lain. 1 NIM hanya dapat digunakan untuk 1 akun.',
+          409
+        );
+      }
+    }
+
     // Verifikasi OTP jika dikirimkan atau diwajibkan di luar test environment
     if (input.otp) {
       OtpService.verifyOtp(normalizedEmail, input.otp, 'REGISTRATION', true);
@@ -97,6 +111,21 @@ export class AuthService {
         email: normalizedEmail,
         password: hashedPassword,
         role: UserRole.CANDIDATE,
+        ...(input.nim
+          ? {
+              profile: {
+                create: {
+                  nim: input.nim.trim(),
+                  fullName: input.fullName?.trim() || '',
+                  universitas: '',
+                  programStudi: '',
+                  roleInterest: 'RISET',
+                  cvUrl: '',
+                  portfolioUrl: '',
+                },
+              },
+            }
+          : {}),
       },
       select: {
         id: true,

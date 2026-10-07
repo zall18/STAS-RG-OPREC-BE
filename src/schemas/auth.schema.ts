@@ -5,6 +5,8 @@ export const registerSchema = z.object({
   body: z.object({
     email: z.string().email('Format email tidak valid'),
     password: z.string().min(6, 'Password minimal 6 karakter'),
+    nim: z.string().min(1, 'NIM tidak boleh kosong').optional(),
+    fullName: z.string().min(1, 'Nama lengkap tidak boleh kosong').optional(),
     otp: z.string().length(6, 'Kode OTP harus 6 digit').optional(),
   }),
 });

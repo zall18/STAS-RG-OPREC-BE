@@ -6,6 +6,7 @@ import { GoldenService } from './golden.service';
 
 export interface GetCandidatesFilter {
   search?: string;
+  nim?: string;
   batch?: string;
   status?: SelectionStatus | GoldenStatus;
   roleInterest?: RoleInterest;
@@ -37,6 +38,10 @@ export class AdminService {
 
     if (filter.roleInterest) {
       candidateFilter.roleInterest = filter.roleInterest;
+    }
+
+    if (filter.nim && filter.nim.trim() !== '') {
+      candidateFilter.nim = { contains: filter.nim.trim(), mode: 'insensitive' };
     }
 
     if (filter.search && filter.search.trim() !== '') {

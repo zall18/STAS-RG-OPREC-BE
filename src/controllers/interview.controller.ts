@@ -99,4 +99,49 @@ export class InterviewController {
       next(error);
     }
   }
+
+  static async requestReschedule(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = req.user!.id;
+      const { id } = req.params;
+      const updated = await InterviewService.requestReschedule(userId, id, req.body);
+      res.status(200).json({
+        success: true,
+        message: 'Permohonan perubahan jadwal wawancara berhasil dikirimkan ke admin',
+        data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async approveReschedule(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const adminId = req.user!.id;
+      const { id } = req.params;
+      const updated = await InterviewService.approveReschedule(adminId, id, req.body);
+      res.status(200).json({
+        success: true,
+        message: 'Permohonan perubahan jadwal wawancara berhasil disetujui',
+        data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async rejectReschedule(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const adminId = req.user!.id;
+      const { id } = req.params;
+      const updated = await InterviewService.rejectReschedule(adminId, id, req.body);
+      res.status(200).json({
+        success: true,
+        message: 'Permohonan perubahan jadwal wawancara ditolak dan catatan telah dikirimkan ke kandidat',
+        data: updated,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }

@@ -5,6 +5,7 @@ export { updateRecruitmentSettingSchema, UpdateRecruitmentSettingInput } from '.
 export const getCandidatesQuerySchema = z.object({
   query: z.object({
     search: z.string().optional(),
+    nim: z.string().optional(),
     batch: z.string().optional(),
     status: z.union([z.nativeEnum(SelectionStatus), z.nativeEnum(GoldenStatus)]).optional(),
     roleInterest: z.nativeEnum(RoleInterest).optional(),

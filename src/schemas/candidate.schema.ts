@@ -24,13 +24,41 @@ export const upsertProfileSchema = z.object({
         return trimmed;
       }),
     transkripUrl: z
-      .string()
-      .optional()
-      .nullable()
+      .string({ required_error: 'Transkrip nilai wajib diunggah' })
+      .min(1, 'Transkrip nilai wajib diunggah')
       .transform((val) => {
-        if (!val || val.trim() === '') return null;
         const trimmed = val.trim();
-        if (!/^https?:\/\//i.test(trimmed) && !trimmed.startsWith('/')) {
+        if (trimmed && !/^https?:\/\//i.test(trimmed) && !trimmed.startsWith('/')) {
+          return `https://${trimmed}`;
+        }
+        return trimmed;
+      }),
+    ksmUrl: z
+      .string({ required_error: 'File KSM wajib diunggah' })
+      .min(1, 'File KSM wajib diunggah')
+      .transform((val) => {
+        const trimmed = val.trim();
+        if (trimmed && !/^https?:\/\//i.test(trimmed) && !trimmed.startsWith('/')) {
+          return `https://${trimmed}`;
+        }
+        return trimmed;
+      }),
+    eprtUrl: z
+      .string({ required_error: 'Sertifikat EPRT wajib diunggah' })
+      .min(1, 'Sertifikat EPRT wajib diunggah')
+      .transform((val) => {
+        const trimmed = val.trim();
+        if (trimmed && !/^https?:\/\//i.test(trimmed) && !trimmed.startsWith('/')) {
+          return `https://${trimmed}`;
+        }
+        return trimmed;
+      }),
+    linkedinUrl: z
+      .string({ required_error: 'Link profil LinkedIn wajib diisi' })
+      .min(1, 'Link profil LinkedIn wajib diisi')
+      .transform((val) => {
+        const trimmed = val.trim();
+        if (trimmed && !/^https?:\/\//i.test(trimmed) && !trimmed.startsWith('/')) {
           return `https://${trimmed}`;
         }
         return trimmed;

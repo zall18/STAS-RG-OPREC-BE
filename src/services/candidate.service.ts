@@ -8,6 +8,21 @@ export class CandidateService {
    * Upsert Candidate Profile
    */
   static async upsertProfile(userId: string, input: UpsertProfileInput) {
+    const trimmedNim = input.nim.trim();
+
+    // Validasi keunikan NIM: 1 NIM hanya dapat digunakan oleh 1 akun
+    const existingWithNim = await prisma.candidateProfile.findUnique({
+      where: { nim: trimmedNim },
+    });
+
+    if (existingWithNim && existingWithNim.userId !== userId) {
+      const error: any = new Error(
+        'NIM ini sudah terdaftar pada akun lain. 1 NIM hanya dapat digunakan untuk 1 akun.'
+      );
+      error.statusCode = 409;
+      throw error;
+    }
+
     const existingProfile = await prisma.candidateProfile.findUnique({
       where: { userId },
     });
@@ -15,11 +30,14 @@ export class CandidateService {
     const profileData = {
       fullName: input.fullName,
       universitas: input.universitas,
-      nim: input.nim,
+      nim: trimmedNim,
       programStudi: input.programStudi,
       roleInterest: input.roleInterest,
       cvUrl: input.cvUrl,
-      transkripUrl: input.transkripUrl ?? null,
+      transkripUrl: input.transkripUrl,
+      ksmUrl: input.ksmUrl,
+      eprtUrl: input.eprtUrl,
+      linkedinUrl: input.linkedinUrl,
       ipk: input.ipk ?? null,
       semester: input.semester ?? null,
       portfolioUrl: input.portfolioUrl,
@@ -96,11 +114,15 @@ export class CandidateService {
     if (!profile.programStudi) missingFields.push('programStudi');
     if (!profile.roleInterest) missingFields.push('roleInterest');
     if (!profile.cvUrl) missingFields.push('cvUrl');
+    if (!profile.transkripUrl) missingFields.push('transkripUrl');
+    if (!profile.ksmUrl) missingFields.push('ksmUrl');
+    if (!profile.eprtUrl) missingFields.push('eprtUrl');
+    if (!profile.linkedinUrl) missingFields.push('linkedinUrl');
     if (!profile.portfolioUrl) missingFields.push('portfolioUrl');
 
     if (missingFields.length > 0) {
       const error: any = new Error(
-        `Field wajib belum lengkap: ${missingFields.join(', ')}. Harap lengkapi profil terlebih dahulu.`
+        `Field berkas dan data wajib belum lengkap: ${missingFields.join(', ')}. Harap lengkapi profil terlebih dahulu.`
       );
       error.statusCode = 400;
       throw error;

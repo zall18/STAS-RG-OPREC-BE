@@ -4,6 +4,9 @@ import { SettingService } from './setting.service';
 
 export interface DashboardStatsFilter {
   batch?: string;
+  startDate?: string;
+  endDate?: string;
+  period?: 'daily' | 'weekly' | 'monthly' | 'yearly';
 }
 
 export class DashboardService {
@@ -13,21 +16,68 @@ export class DashboardService {
   static async getStats(filter?: DashboardStatsFilter) {
     const currentSetting = await SettingService.getSetting();
 
-    // 1. Total Candidate Profiles
-    const totalCandidates = await prisma.candidateProfile.count();
+    let calculatedStartDate: Date | undefined;
+    let calculatedEndDate: Date | undefined;
 
-    // 2. Total Golden Candidates (Those with isGoldenCandidate = true)
-    const totalGoldenCandidates = await prisma.candidateProfile.count({
-      where: { isGoldenCandidate: true },
-    });
+    if (filter?.startDate) {
+      calculatedStartDate = new Date(filter.startDate);
+    }
+    if (filter?.endDate) {
+      calculatedEndDate = new Date(filter.endDate);
+    }
 
-    const totalGoldenApplications = await prisma.goldenApplication.count();
+    if (filter?.period && !filter.startDate) {
+      const now = new Date();
+      calculatedEndDate = now;
+      if (filter.period === 'daily') {
+        calculatedStartDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      } else if (filter.period === 'weekly') {
+        calculatedStartDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      } else if (filter.period === 'monthly') {
+        calculatedStartDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      } else if (filter.period === 'yearly') {
+        calculatedStartDate = new Date(now.getFullYear(), 0, 1);
+      }
+    }
 
-    // 3. Filter clause for OprecRegistrations if batch specified
+    const candidateWhere: any = {};
     const registrationWhere: any = {};
+    const goldenWhere: any = {};
+
     if (filter?.batch) {
       registrationWhere.batchName = { contains: filter.batch, mode: 'insensitive' };
     }
+
+    if (calculatedStartDate || calculatedEndDate) {
+      registrationWhere.appliedAt = {};
+      candidateWhere.createdAt = {};
+      goldenWhere.createdAt = {};
+
+      if (calculatedStartDate) {
+        registrationWhere.appliedAt.gte = calculatedStartDate;
+        candidateWhere.createdAt.gte = calculatedStartDate;
+        goldenWhere.createdAt.gte = calculatedStartDate;
+      }
+      if (calculatedEndDate) {
+        registrationWhere.appliedAt.lte = calculatedEndDate;
+        candidateWhere.createdAt.lte = calculatedEndDate;
+        goldenWhere.createdAt.lte = calculatedEndDate;
+      }
+    }
+
+    // 1. Total Candidate Profiles
+    const totalCandidates = await prisma.candidateProfile.count({
+      where: candidateWhere,
+    });
+
+    // 2. Total Golden Candidates (Those with isGoldenCandidate = true)
+    const totalGoldenCandidates = await prisma.candidateProfile.count({
+      where: { ...candidateWhere, isGoldenCandidate: true },
+    });
+
+    const totalGoldenApplications = await prisma.goldenApplication.count({
+      where: goldenWhere,
+    });
 
     const totalRegistrations = await prisma.oprecRegistration.count({
       where: registrationWhere,
@@ -35,10 +85,10 @@ export class DashboardService {
 
     // 4. Role Interest distribution
     const risetCount = await prisma.candidateProfile.count({
-      where: { roleInterest: RoleInterest.RISET },
+      where: { ...candidateWhere, roleInterest: RoleInterest.RISET },
     });
     const magangCount = await prisma.candidateProfile.count({
-      where: { roleInterest: RoleInterest.MAGANG },
+      where: { ...candidateWhere, roleInterest: RoleInterest.MAGANG },
     });
 
     // 5. Status distribution for registrations (Optimized with groupBy)
@@ -148,6 +198,12 @@ export class DashboardService {
         goldenStatus: goldenStatusDistribution,
       },
       batches,
+      filterApplied: {
+        batch: filter?.batch ?? null,
+        startDate: calculatedStartDate?.toISOString() ?? null,
+        endDate: calculatedEndDate?.toISOString() ?? null,
+        period: filter?.period ?? null,
+      },
       recentRegistrations: recentRegistrations.map((r) => ({
         id: r.id,
         candidateId: r.candidateId,

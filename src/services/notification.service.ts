@@ -1,17 +1,36 @@
 import { prisma } from '../config/prisma';
+import { EmailService } from './email.service';
 
 export class NotificationService {
   /**
-   * Send notification to a specific user
+   * Send notification to a specific user and alert via email
    */
   static async send(userId: string, title: string, message: string) {
-    return prisma.notification.create({
+    const notification = await prisma.notification.create({
       data: {
         userId,
         title,
         message,
       },
     });
+
+    // Kirim notifikasi via Gmail (Asynchronous non-blocking)
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { email: true },
+      });
+
+      if (user && user.email) {
+        EmailService.sendNotificationAlertEmail(user.email, title, message).catch((err) => {
+          console.error(`[Notification Email Error] Gagal mengirim email ke ${user.email}:`, err);
+        });
+      }
+    } catch (err) {
+      console.error('[Notification Email Dispatch Error]:', err);
+    }
+
+    return notification;
   }
 
   /**

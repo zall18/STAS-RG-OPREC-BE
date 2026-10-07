@@ -7,8 +7,8 @@ export class DashboardController {
    */
   static async getStats(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const batch = req.query.batch as string | undefined;
-      const stats = await DashboardService.getStats({ batch });
+      const { batch, startDate, endDate, period } = req.query as any;
+      const stats = await DashboardService.getStats({ batch, startDate, endDate, period });
 
       res.status(200).json({
         success: true,

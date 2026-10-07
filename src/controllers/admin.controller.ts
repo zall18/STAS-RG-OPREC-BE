@@ -9,9 +9,10 @@ export class AdminController {
    */
   static async getCandidates(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { search, batch, status, roleInterest, isGolden, page, limit } = req.query as any;
+      const { search, nim, batch, status, roleInterest, isGolden, page, limit } = req.query as any;
       const result = await AdminService.getCandidates({
         search: search as string | undefined,
+        nim: nim as string | undefined,
         batch: batch as string | undefined,
         status: status as any,
         roleInterest: roleInterest as any,

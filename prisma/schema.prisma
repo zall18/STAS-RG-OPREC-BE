@@ -44,24 +44,27 @@ enum InterviewType {
 enum InterviewStatus {
   SCHEDULED
   CONFIRMED
+  RESCHEDULE_REQUESTED
+  RESCHEDULE_REJECTED
   COMPLETED
   CANCELLED
 }
 
 model User {
-  id            String            @id @default(uuid())
-  email         String            @unique
-  password      String?
-  role          UserRole          @default(CANDIDATE)
-  isActive      Boolean           @default(true)
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @default(now()) @updatedAt
+  id              String            @id @default(uuid())
+  email           String            @unique
+  password        String?
+  role            UserRole          @default(CANDIDATE)
+  isActive        Boolean           @default(true)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @default(now()) @updatedAt
 
-  profile       CandidateProfile?
-  adminNotes    AdminNote[]
-  notifications Notification[]
-  activityLogs  ActivityLog[]
-  announcements Announcement[]
+  profile         CandidateProfile?
+  adminNotes      AdminNote[]
+  notifications   Notification[]
+  activityLogs    ActivityLog[]
+  announcements   Announcement[]
+  interviewsAsPic Interview[]       @relation("InterviewPIC")
 }
 
 model CandidateProfile {
@@ -71,11 +74,14 @@ model CandidateProfile {
   
   fullName           String
   universitas        String
-  nim                String
+  nim                String              @unique
   programStudi       String
   roleInterest       RoleInterest
   cvUrl              String
   transkripUrl       String?
+  ksmUrl             String?
+  eprtUrl            String?
+  linkedinUrl        String?
   ipk                Float?
   semester           Int?
   portfolioUrl       String
@@ -175,21 +181,31 @@ model Notification {
 }
 
 model Interview {
-  id             String             @id @default(uuid())
-  candidateId    String
-  candidate      CandidateProfile   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
-  registrationId String?
-  registration   OprecRegistration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
+  id                     String             @id @default(uuid())
+  candidateId            String
+  candidate              CandidateProfile   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  registrationId         String?
+  registration           OprecRegistration? @relation(fields: [registrationId], references: [id], onDelete: SetNull)
   
-  datetime       DateTime
-  location       String?
-  type           InterviewType      @default(ONLINE)
-  link           String?
-  status         InterviewStatus    @default(SCHEDULED)
-  notes          String?            @db.Text
+  datetime               DateTime
+  location               String?
+  type                   InterviewType      @default(ONLINE)
+  link                   String?
+  status                 InterviewStatus    @default(SCHEDULED)
+  notes                  String?            @db.Text
 
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  // PIC Interview
+  picName                String?
+  picId                  String?
+  pic                    User?              @relation("InterviewPIC", fields: [picId], references: [id], onDelete: SetNull)
+
+  // Reschedule Management
+  rescheduleProposedDate DateTime?
+  rescheduleReason       String?            @db.Text
+  adminRescheduleNote    String?            @db.Text
+
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
 
   @@index([datetime])
   @@index([status])
