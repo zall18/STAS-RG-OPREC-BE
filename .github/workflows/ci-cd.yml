@@ -1,0 +1,102 @@
+name: Backend CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  # ========================================================
+  # TAHAP 1: Continuous Integration (CI)
+  # Memvalidasi kode, tipe data, pengujian otomatis & build Docker
+  # ========================================================
+  test-and-build:
+    name: 🧪 Run Tests & Build Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: 📦 Install Dependencies
+        run: npm ci
+
+      - name: 🗄️ Generate Prisma Client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/test?schema=public'
+
+      - name: 🏗️ Compile TypeScript (Build Check)
+        run: npm run build
+
+      - name: 🧪 Run Automated Test Suite
+        run: npm test -- --runInBand --forceExit
+        env:
+          NODE_ENV: test
+          JWT_SECRET: ci-test-secret-key-12345
+          DATABASE_URL: 'postgresql://postgres:postgres@localhost:5432/test?schema=public'
+
+      - name: 🐳 Validate Docker Build
+        run: docker build -t stasrg-backend:ci .
+
+  # ========================================================
+  # TAHAP 2: Continuous Deployment (CD)
+  # Otomatis deploy ke VPS via SSH saat push ke branch main
+  # ========================================================
+  deploy:
+    name: 🚀 Deploy to VPS Server
+    needs: test-and-build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🌐 SSH and Deploy to VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT || 22 }}
+          script_stop: true
+          script: |
+            echo "🚀 [Deploy] Memulai proses deployment di VPS..."
+            
+            # Pindah ke folder project di VPS
+            cd ${{ secrets.VPS_DEPLOY_PATH }} || { echo "❌ Folder project tidak ditemukan di ${{ secrets.VPS_DEPLOY_PATH }}"; exit 1; }
+            
+            # Tarik kode terbaru dari GitHub
+            echo "📥 [Git] Menarik pembaruan kode terbaru dari branch main..."
+            git fetch origin main
+            git reset --hard origin/main
+            
+            # Pastikan file .env ada di VPS
+            if [ ! -f .env ]; then
+              echo "⚠️ [Warning] File .env tidak ditemukan! Silakan buat file .env di server."
+              exit 1
+            fi
+            
+            # Rebuild dan jalankan kontainer Docker
+            echo "🐳 [Docker] Membangun ulang dan menyalakan kontainer..."
+            docker compose down || true
+            docker compose up -d --build
+            
+            # Bersihkan image lama yang tidak terpakai
+            docker image prune -f
+            
+            # Tunggu 8 detik untuk startup
+            sleep 8
+            
+            # Verifikasi kesehatan backend (Health Check)
+            echo "🩺 [Health Check] Memeriksa status kesehatan server..."
+            curl -f http://localhost:5001/api/health || { echo "❌ Healthcheck gagal! Periksa 'docker logs stasrg-backend'"; exit 1; }
+            
+            echo "🎉 [Deploy] Deployment berhasil dan backend aktif berjalan!"
